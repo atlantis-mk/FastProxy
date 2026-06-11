@@ -65,6 +65,25 @@ export const getUrlFromBackend = (end: Omit<Backend, 'uuid'>) => {
   return `${end.protocol}://${end.host}:${end.port}${end.secondaryPath || ''}`
 }
 
+export const getApiBaseUrl = (end?: Omit<Backend, 'uuid'>) => {
+  if (import.meta.env.DEV) {
+    return import.meta.env.VITE_BACKEND_API_BASE || '/api'
+  }
+  return end ? getUrlFromBackend(end) : ''
+}
+
+export const getWebSocketBaseUrl = (end?: Omit<Backend, 'uuid'>) => {
+  if (import.meta.env.DEV) {
+    const apiBase = import.meta.env.VITE_BACKEND_API_BASE || '/api'
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}${apiBase}`
+  }
+  if (!end) {
+    return ''
+  }
+  return getUrlFromBackend(end).replace(/^http/, 'ws')
+}
+
 export const getLabelFromBackend = (end: Omit<Backend, 'uuid'>) => {
   return end.label || getUrlFromBackend(end)
 }

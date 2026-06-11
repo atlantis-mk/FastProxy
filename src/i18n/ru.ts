@@ -2,12 +2,21 @@ import type { LANG_MESSAGE } from './en'
 
 const ru: LANG_MESSAGE = {
   // Navigation
+  home: 'Главная',
+  workspace: 'Рабочее место',
+  kernelManagement: 'Управление ядром',
+  configManagement: 'Управление конфигами',
+  configSubscriptions: 'Подписки конфигов',
+  routingRules: 'Правила маршрутизации',
+  routingRuleGroups: 'Группы',
   setup: 'Настройка',
   overview: 'Обзор',
   proxies: 'Прокси',
   rules: 'Правила',
   connections: 'Подключения',
   logs: 'Журнал',
+  configManagementRefreshFailed:
+    'Не удалось обновить управление конфигами. Проверьте состояние бэкенда и активный профиль.',
 
   // Shared labels and actions
   protocol: 'Протокол',
@@ -240,6 +249,101 @@ const ru: LANG_MESSAGE = {
   moreDetails: 'Подробнее',
   moreSettings: 'Дополнительные настройки',
   customIcon: 'Пользовательская иконка',
+  homeHeroBadge: 'Пульт FastProxy',
+  homeHeroTitle:
+    'Вынести переключение ядер и управление JSON-конфигами на настоящую главную страницу.',
+  homeHeroDescription:
+    'FastProxy теперь открывается с отдельной главной страницы, а не сразу с экрана прокси. Это удобнее как единая точка входа для состояния бэкенда, данных репозитория и жизненного цикла конфигов.',
+  homeSelectedCore: 'Текущее ядро',
+  homeActiveProfile: 'Текущий профиль',
+  homeBackendAddress: 'Адрес бэкенда',
+  homeBackendAddressHint:
+    'В разработке используется Vite proxy, в продакшене прямое подключение к бэкенду.',
+  homeQuickProxyTitle: 'Открыть пространство прокси',
+  homeQuickProxyDescription: 'Сразу перейти к группам, узлам и выбору политик.',
+  homeQuickSettingsTitle: 'Открыть настройки',
+  homeQuickSettingsDescription: 'Изменить порты, поведение и предпочтения панели.',
+  homeRefreshDescription: 'Обновить bootstrap-данные бэкенда и состояние репозитория.',
+  homeConfigSource: 'Примененная конфигурация',
+  homeNoConfigApplied: 'Активный профиль пока не выбран.',
+  homeDataDirectory: 'Локальный каталог данных',
+  homeCoreUnits: 'ядер',
+  configSubscriptionsTitle: 'Источники подписок для профилей репозитория.',
+  configSubscriptionsDescription:
+    'Эта страница добавляет новый пункт меню и каркас для управления подписками конфигураций. Полные сценарии редактирования можно будет дописать здесь позже.',
+  configSubscriptionsTotal: 'Подписок',
+  configSubscriptionsLoadedProfiles: 'Загружено профилей: {count}',
+  configSubscriptionsActiveProfile: 'Активный профиль',
+  configSubscriptionsAttachedCount: 'Привязано к {count} профилю(ям)',
+  configSubscriptionsPlaceholderTitle: 'Страница-заглушка',
+  configSubscriptionsPlaceholderDescription:
+    'Этот экран уже зарезервирован для создания, редактирования, синхронизации и привязки источников подписок к профилям.',
+  configSubscriptionsNextStep: 'Следующий шаг',
+  configSubscriptionsNextStepDescription:
+    'На следующей итерации здесь можно добавить форму создания подписки, действия обновления и привязку к профилям.',
+  configSubscriptionsEditingHint:
+    'Метаданные существующих подписок уже показаны ниже, поэтому дальнейшие правки можно будет добавлять без повторной переработки навигации.',
+  configSubscriptionsListTitle: 'Текущий снимок репозитория',
+  configSubscriptionsListDescription:
+    'Эти записи приходят из FastProxy repository bootstrap и помогают проверить, что меню и страница подключены правильно.',
+  configSubscriptionsRevision: 'Ревизия',
+  configSubscriptionsNoSourceUrl: 'URL источника отсутствует',
+  configSubscriptionsEmpty: 'Подписок конфигураций пока нет.',
+  homeCoreCardTitle: 'Набор ядер',
+  homeCoreCardDescription:
+    'Показывает целевое ядро, пока редактируются профили и данные репозитория.',
+  homeConfigured: 'Настроено',
+  homeUnconfigured: 'Не настроено',
+  homeNoBinaryPath: 'Путь к бинарнику пока не задан.',
+  homeWorkflowTitle: 'Рекомендуемый поток',
+  homeWorkflowDescription:
+    'Такая последовательность хорошо подходит для той серверной архитектуры, которую вы сейчас строите.',
+  homeWorkflowProfilesTitle: 'Подготовить профили',
+  homeWorkflowProfilesDescription:
+    'Сначала храните каждое определение прокси в JSON, а затем добавляйте версионирование, активацию и компиляцию.',
+  homeWorkflowCoreTitle: 'Выбрать целевое ядро',
+  homeWorkflowCoreDescription:
+    'Сначала выберите, нацелен ли активный профиль на mihomo или sing-box, а компиляцию можно подключить позже.',
+  homeWorkflowApplyTitle: 'Применить и наблюдать',
+  homeWorkflowApplyDescription:
+    'Проверьте состояние репозитория и постепенно наращивайте поверх него страницы управления.',
+  homeProjectCardTitle: 'Снимок проекта',
+  homeProjectCardDescription:
+    'Несколько быстрых фактов, которые связывают новую главную страницу с текущим рабочим пространством.',
+  homeFrontendVersion: 'Версия фронтенда',
+  homeProjectBackendsHint: 'В текущем рабочем пространстве доступно {count} целевых бэкендов.',
+  homeProjectIntent: 'Текущее направление',
+  homeProjectIntentDescription:
+    'Эта главная страница намеренно делает акцент не на графиках трафика, а на оркестрации, чтобы приложение сначала выросло вокруг динамического переключения ядер и управления конфигурацией.',
+  homeAnnouncementTitle: 'Главная FastProxy теперь заточена под управление репозиторием.',
+  homeAnnouncementDescription:
+    'Переключайте ядра, выбирайте JSON-конфиги и переходите в нужные разделы из одной компактной панели.',
+  homeCorePanelTitle: 'Состояние ядра',
+  homeCorePanelDescription:
+    'Проверьте целевое ядро, выбранное активным профилем.',
+  homeCoreVersionLabel: 'Текущее ядро',
+  homeRestartCore: 'Перезапуск',
+  homeOverwriteModule: 'Модуль конфигов',
+  homeQuickActionsTitle: 'Быстрые действия',
+  homeConfigPanelTitle: 'Файлы конфигурации',
+  homeConfigPanelDescription:
+    'Выберите JSON-профиль, активируйте его или создайте новый на лету.',
+  homeNoConfigTimestamp: 'Пока нет времени обновления',
+  homeSwitchConfig: 'Применить',
+  homeNoProfiles: 'Пока нет файлов конфигурации. Создайте первый, чтобы начать.',
+  homeAddConfig: 'Добавить конфиг',
+  homeDuplicateConfig: 'Дублировать',
+  homeEditConfig: 'Редактировать',
+  homeUpdateConfig: 'Обновить',
+  homeConfigMetaTitle: 'Информация о конфиге',
+  homeConfigMetaPath: 'Каталог данных',
+  homeConfigMetaApplied: 'Целевое ядро',
+  homeStatProfiles: 'Профили',
+  homeStatCores: 'Ядра',
+  homeStatActive: 'Активный',
+  homeStatBackend: 'Бэкенд',
+  homeProfileApplied: 'Профиль применен',
+  homeProfileCreated: 'Профиль создан',
   dropOrClickUpload: 'Перетащите изображение или вставьте URL',
   disablePullToRefresh: 'Отключить свойство обновления',
   disablePullToRefreshTip:

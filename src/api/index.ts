@@ -1,9 +1,9 @@
 import { MIHOMO, MIHOMO_CHANNEL, ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
-import { getUrlFromBackend } from '@/helper/utils'
+import { getApiBaseUrl, getWebSocketBaseUrl } from '@/helper/utils'
 import router from '@/router'
 import { autoUpgradeCore, checkUpgradeCore } from '@/store/settings'
-import { activeBackend, activeUuid } from '@/store/setup'
+import { activeBackend, activeBackendFlavor, activeUuid, setActiveBackendFlavor } from '@/store/setup'
 import type {
   Backend,
   Config,
@@ -14,14 +14,17 @@ import type {
   Rule,
   RuleProvider,
 } from '@/types'
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
 import { debounce } from 'lodash'
 import ReconnectingWebSocket from 'reconnectingwebsocket'
 import { computed, nextTick, ref, watch } from 'vue'
+import { detectBackendFlavor } from './fastproxy'
 
 axios.interceptors.request.use((config) => {
-  config.baseURL = getUrlFromBackend(activeBackend.value!)
-  config.headers['Authorization'] = 'Bearer ' + activeBackend.value?.password
+  config.baseURL = getApiBaseUrl(activeBackend.value)
+  if (activeBackend.value?.password) {
+    config.headers['Authorization'] = 'Bearer ' + activeBackend.value.password
+  }
   return config
 })
 
@@ -34,7 +37,7 @@ axios.interceptors.response.use(
       message: string
     }>,
   ) => {
-    if (error.status === 401 && activeUuid.value) {
+    if (error.status === 401 && activeUuid.value && !import.meta.env.DEV) {
       const currentBackendUuid = activeUuid.value
       activeUuid.value = null
       router.push({
@@ -59,10 +62,36 @@ axios.interceptors.response.use(
   },
 )
 
+const fastProxyApiPath = (path: string) => (import.meta.env.DEV ? path : `/api${path}`)
+const fastProxyControllerProxyPath = (path: string) =>
+  fastProxyApiPath(`/runtime/controller/${path.replace(/^\/+/, '')}`)
+
+const shouldUseFastProxyControllerProxy = () => {
+  if (activeBackendFlavor.value === 'fastproxy') {
+    return true
+  }
+  if (activeBackendFlavor.value === 'controller') {
+    return false
+  }
+  return ['__dev_backend__', '__local_fastproxy__'].includes(activeBackend.value?.uuid || '')
+}
+
+const controllerRequest = <T>(config: AxiosRequestConfig) => {
+  if (!shouldUseFastProxyControllerProxy()) {
+    return axios.request<T>(config)
+  }
+
+  return axios.request<T>({
+    ...config,
+    baseURL: getApiBaseUrl(activeBackend.value),
+    url: fastProxyControllerProxyPath(String(config.url || '/')),
+  })
+}
+
 export const version = ref()
 export const isCoreUpdateAvailable = ref(false)
 export const fetchVersionAPI = () => {
-  return axios.get<{ version: string }>('/version')
+  return controllerRequest<{ version: string }>({ method: 'GET', url: '/version' })
 }
 export const isSingBox = computed(() => version.value?.includes('sing-box'))
 export const mihomo = computed<[MIHOMO, string] | undefined>(() => {
@@ -87,6 +116,18 @@ watch(
   activeBackend,
   async (val) => {
     if (val) {
+      const flavor = await detectBackendFlavor(val)
+      setActiveBackendFlavor(flavor)
+      if (flavor === 'fastproxy') {
+        version.value = 'fastproxy-server'
+        isCoreUpdateAvailable.value = false
+        return
+      }
+      if (flavor !== 'controller') {
+        version.value = ''
+        isCoreUpdateAvailable.value = false
+        return
+      }
       const { data } = await fetchVersionAPI()
 
       version.value = data?.version || ''
@@ -103,19 +144,25 @@ watch(
 )
 
 export const fetchProxiesAPI = () => {
-  return axios.get<{ proxies: Record<string, Proxy> }>('/proxies')
+  return controllerRequest<{ proxies: Record<string, Proxy> }>({ method: 'GET', url: '/proxies' })
 }
 
 export const selectProxyAPI = (proxyGroup: string, name: string) => {
-  return axios.put(`/proxies/${encodeURIComponent(proxyGroup)}`, { name })
+  return controllerRequest({
+    method: 'PUT',
+    url: `/proxies/${encodeURIComponent(proxyGroup)}`,
+    data: { name },
+  })
 }
 
 export const deleteFixedProxyAPI = (proxyGroup: string) => {
-  return axios.delete(`/proxies/${encodeURIComponent(proxyGroup)}`)
+  return controllerRequest({ method: 'DELETE', url: `/proxies/${encodeURIComponent(proxyGroup)}` })
 }
 
 export const fetchProxyLatencyAPI = (proxyName: string, url: string, timeout: number) => {
-  return axios.get<{ delay: number }>(`/proxies/${encodeURIComponent(proxyName)}/delay`, {
+  return controllerRequest<{ delay: number }>({
+    method: 'GET',
+    url: `/proxies/${encodeURIComponent(proxyName)}/delay`,
     params: {
       url,
       timeout,
@@ -124,7 +171,9 @@ export const fetchProxyLatencyAPI = (proxyName: string, url: string, timeout: nu
 }
 
 export const fetchProxyGroupLatencyAPI = (proxyName: string, url: string, timeout: number) => {
-  return axios.get<Record<string, number>>(`/group/${encodeURIComponent(proxyName)}/delay`, {
+  return controllerRequest<Record<string, number>>({
+    method: 'GET',
+    url: `/group/${encodeURIComponent(proxyName)}/delay`,
     params: {
       url,
       timeout,
@@ -133,144 +182,165 @@ export const fetchProxyGroupLatencyAPI = (proxyName: string, url: string, timeou
 }
 
 export const fetchSmartWeightsAPI = () => {
-  return axios.get<{
+  return controllerRequest<{
     message: string
     weights: Record<string, NodeRank[]>
-  }>(`/group/weights`)
+  }>({ method: 'GET', url: '/group/weights' })
 }
 
 // deprecated
 export const fetchSmartGroupWeightsAPI = (proxyName: string) => {
-  return axios.get<{
+  return controllerRequest<{
     message: string
     weights: NodeRank[]
-  }>(`/group/${encodeURIComponent(proxyName)}/weights`)
+  }>({ method: 'GET', url: `/group/${encodeURIComponent(proxyName)}/weights` })
 }
 
 export const flushSmartGroupWeightsAPI = () => {
-  return axios.post(`/cache/smart/flush`)
+  return controllerRequest({ method: 'POST', url: '/cache/smart/flush' })
 }
 
 export const fetchProxyProviderAPI = () => {
-  return axios.get<{ providers: Record<string, ProxyProvider> }>('/providers/proxies')
+  return controllerRequest<{ providers: Record<string, ProxyProvider> }>({
+    method: 'GET',
+    url: '/providers/proxies',
+  })
 }
 
 export const updateProxyProviderAPI = (name: string) => {
-  return axios.put(`/providers/proxies/${encodeURIComponent(name)}`)
+  return controllerRequest({ method: 'PUT', url: `/providers/proxies/${encodeURIComponent(name)}` })
 }
 
 export const proxyProviderHealthCheckAPI = (name: string) => {
-  return axios.get<Record<string, number>>(
-    `/providers/proxies/${encodeURIComponent(name)}/healthcheck`,
-    {
-      timeout: 15000,
-    },
-  )
+  return controllerRequest<Record<string, number>>({
+    method: 'GET',
+    url: `/providers/proxies/${encodeURIComponent(name)}/healthcheck`,
+    timeout: 15000,
+  })
 }
 
 export const fetchRulesAPI = () => {
-  return axios.get<{ rules: Rule[] }>('/rules')
+  return controllerRequest<{ rules: Rule[] }>({ method: 'GET', url: '/rules' })
 }
 
 export const toggleRuleDisabledAPI = (data: Record<number, boolean>) => {
-  return axios.patch(`/rules/disable`, data)
+  return controllerRequest({ method: 'PATCH', url: '/rules/disable', data })
 }
 
 export const toggleRuleDisabledSingBoxAPI = (uuid: string) => {
-  return axios.put(`/rules/${encodeURIComponent(uuid)}`)
+  return controllerRequest({ method: 'PUT', url: `/rules/${encodeURIComponent(uuid)}` })
 }
 
 export const fetchRuleProvidersAPI = () => {
-  return axios.get<{ providers: Record<string, RuleProvider> }>('/providers/rules')
+  return controllerRequest<{ providers: Record<string, RuleProvider> }>({
+    method: 'GET',
+    url: '/providers/rules',
+  })
 }
 
 export const updateRuleProviderAPI = (name: string) => {
-  return axios.put(`/providers/rules/${encodeURIComponent(name)}`)
+  return controllerRequest({ method: 'PUT', url: `/providers/rules/${encodeURIComponent(name)}` })
 }
 
 export const blockConnectionByIdAPI = (id: string) => {
-  return axios.delete(`/connections/smart/${id}`)
+  return controllerRequest({ method: 'DELETE', url: `/connections/smart/${id}` })
 }
 
 export const disconnectByIdAPI = (id: string) => {
-  return axios.delete(`/connections/${id}`)
+  return controllerRequest({ method: 'DELETE', url: `/connections/${id}` })
 }
 
 export const disconnectAllAPI = () => {
-  return axios.delete('/connections')
+  return controllerRequest({ method: 'DELETE', url: '/connections' })
 }
 
 export const getConfigsAPI = () => {
-  return axios.get<Config>('/configs')
+  return controllerRequest<Config>({ method: 'GET', url: '/configs' })
 }
 
 export const patchConfigsAPI = (configs: Record<string, string | boolean | object | number>) => {
-  return axios.patch('/configs', configs)
+  return controllerRequest({ method: 'PATCH', url: '/configs', data: configs })
 }
 
 export const flushFakeIPAPI = () => {
-  return axios.post('/cache/fakeip/flush')
+  return controllerRequest({ method: 'POST', url: '/cache/fakeip/flush' })
 }
 
 export const flushDNSCacheAPI = () => {
-  return axios.post('/cache/dns/flush')
+  return controllerRequest({ method: 'POST', url: '/cache/dns/flush' })
 }
 
 export const reloadConfigsAPI = () => {
-  return axios.put('/configs?reload=true', { path: '', payload: '' })
+  return controllerRequest({
+    method: 'PUT',
+    url: '/configs?reload=true',
+    data: { path: '', payload: '' },
+  })
 }
 
 export const updateConfigsAPI = (
   config: { path?: string; payload?: string },
   force: boolean = false,
 ) => {
-  return axios.put(`/configs${force ? '?force=true' : ''}`, {
-    path: config.path || '',
-    payload: config.payload || '',
+  return controllerRequest({
+    method: 'PUT',
+    url: `/configs${force ? '?force=true' : ''}`,
+    data: {
+      path: config.path || '',
+      payload: config.payload || '',
+    },
   })
 }
 
 export const upgradeUIAPI = () => {
-  return axios.post('/upgrade/ui')
+  return controllerRequest({ method: 'POST', url: '/upgrade/ui' })
 }
 
 export const updateGeoDataAPI = () => {
-  return axios.post('/configs/geo')
+  return controllerRequest({ method: 'POST', url: '/configs/geo' })
 }
 
 export const upgradeCoreAPI = (type: 'release' | 'alpha' | 'auto') => {
   const url = type === 'auto' ? '/upgrade' : `/upgrade?channel=${type}`
 
-  return axios.post(url)
+  return controllerRequest({ method: 'POST', url })
 }
 
 export const restartCoreAPI = () => {
-  return axios.post('/restart')
+  return controllerRequest({ method: 'POST', url: '/restart' })
 }
 
 export const queryDNSAPI = (params: { name: string; type: string }) => {
-  return axios.get<DNSQuery>('/dns/query', {
+  return controllerRequest<DNSQuery>({
+    method: 'GET',
+    url: '/dns/query',
     params,
   })
 }
 
 export const getStorageAPI = () => {
-  return axios.get<Record<string, unknown>>(`/storage/zashboard`)
+  return controllerRequest<Record<string, unknown>>({ method: 'GET', url: '/storage/zashboard' })
 }
 
 export const setStorageAPI = (value: Record<string, string>) => {
-  return axios.put(`/storage/zashboard`, value)
+  return controllerRequest({ method: 'PUT', url: '/storage/zashboard', data: value })
 }
 
 export const deleteStorageAPI = () => {
-  return axios.delete(`/storage/zashboard`)
+  return controllerRequest({ method: 'DELETE', url: '/storage/zashboard' })
 }
 
 const createWebSocket = <T>(url: string, searchParams?: Record<string, string>) => {
-  const backend = activeBackend.value!
-  const resurl = new URL(`${getUrlFromBackend(backend).replace('http', 'ws')}/${url}`)
+  const path =
+    shouldUseFastProxyControllerProxy()
+      ? fastProxyControllerProxyPath(url)
+      : `/${url.replace(/^\/+/, '')}`
+  const resurl = new URL(`${getWebSocketBaseUrl(activeBackend.value)}${path}`)
+  const token = shouldUseFastProxyControllerProxy() ? '' : activeBackend.value?.password || ''
 
-  resurl.searchParams.append('token', backend?.password || '')
+  if (token) {
+    resurl.searchParams.append('token', token)
+  }
 
   if (searchParams) {
     Object.entries(searchParams).forEach(([key, value]) => {
@@ -314,23 +384,10 @@ export const fetchTrafficAPI = <T>() => {
 }
 
 export const isBackendAvailable = async (backend: Backend, timeout: number = 10000) => {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
   try {
-    const res = await fetch(`${getUrlFromBackend(backend)}/version`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${backend.password}`,
-      },
-      signal: controller.signal,
-    })
-
-    return res.ok
+    return (await detectBackendFlavor(backend, timeout)) !== 'unknown'
   } catch {
     return false
-  } finally {
-    clearTimeout(timeoutId)
   }
 }
 
@@ -378,12 +435,17 @@ async function fetchWithLocalCache<T>(url: string, version: string): Promise<T> 
 }
 
 export const fetchIsUIUpdateAvailable = async () => {
-  const { tag_name } = await fetchWithLocalCache<{ tag_name: string }>(
-    'https://api.github.com/repos/Zephyruso/zashboard/releases/latest',
-    zashboardVersion.value,
-  )
+  try {
+    const { tag_name } = await fetchWithLocalCache<{ tag_name: string }>(
+      'https://api.github.com/repos/Zephyruso/zashboard/releases/latest',
+      zashboardVersion.value,
+    )
 
-  return Boolean(tag_name && tag_name !== `v${zashboardVersion.value}`)
+    return Boolean(tag_name && tag_name !== `v${zashboardVersion.value}`)
+  } catch (error) {
+    console.warn('Failed to check UI update availability', error)
+    return false
+  }
 }
 
 const check = async (url: string, versionNumber: string) => {

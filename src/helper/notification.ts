@@ -5,7 +5,7 @@ const t = i18n.global.t
 const alertMap = new Map<
   string,
   {
-    timer: number
+    timer?: ReturnType<typeof setTimeout>
     alert: HTMLElement
     progressBar: HTMLElement
     startTime: number
@@ -48,7 +48,7 @@ const setTimer = (
   alertKey?: string,
   progressBar?: HTMLElement | null,
 ) => {
-  let timer = -1
+  let timer: ReturnType<typeof setTimeout> | undefined
 
   if (timeout !== 0) {
     // 设置进度条动画

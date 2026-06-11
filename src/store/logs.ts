@@ -16,7 +16,7 @@ export const logLevel = useStorage<string>('config/log-level', LOG_LEVEL.Info)
 export const logFilterRegex = useStorage<string>('config/log-filter-regex', '')
 export const logFilterEnabled = useStorage<boolean>('config/log-filter-enabled', false)
 
-let cancel: () => void
+let cancel: (() => void) | undefined
 let logsTemp: LogWithSeq[] = []
 
 const sliceLogs = throttle(() => {
@@ -53,7 +53,7 @@ watch(
 )
 
 export const initLogs = () => {
-  cancel?.()
+  stopLogs()
   logs.value = []
   logsTemp = []
 
@@ -87,4 +87,10 @@ export const initLogs = () => {
     unwatch()
     ws.close()
   }
+}
+
+export const stopLogs = () => {
+  cancel?.()
+  cancel = undefined
+  logsTemp = []
 }

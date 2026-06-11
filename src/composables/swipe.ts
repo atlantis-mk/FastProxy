@@ -4,6 +4,7 @@ import { connectionTabShow } from '@/store/connections'
 import { proxiesTabShow, proxyProviederList } from '@/store/proxies'
 import { ruleProviderList, rulesTabShow } from '@/store/rules'
 import { swipeInPages, swipeInTabs } from '@/store/settings'
+import { activeBackendFlavor } from '@/store/setup'
 import { useSwipe } from '@vueuse/core'
 import { flatten } from 'lodash'
 import { computed, ref, watch } from 'vue'
@@ -67,7 +68,10 @@ export const useSwipeRouter = () => {
     const routeName = route.name as ROUTE_NAME
 
     if (routeName === ROUTE_NAME.setup) {
-      return router.push({ name: ROUTE_NAME.proxies, replace: true })
+      return router.push({
+        name: activeBackendFlavor.value === 'fastproxy' ? ROUTE_NAME.home : ROUTE_NAME.proxies,
+        replace: true,
+      })
     }
 
     return swipeList.value[(getNextIndexInSwipeList() + 1) % swipeList.value.length]?.[1]?.()
@@ -76,7 +80,10 @@ export const useSwipeRouter = () => {
     const routeName = route.name as ROUTE_NAME
 
     if (routeName === ROUTE_NAME.setup) {
-      return router.push({ name: ROUTE_NAME.proxies, replace: true })
+      return router.push({
+        name: activeBackendFlavor.value === 'fastproxy' ? ROUTE_NAME.home : ROUTE_NAME.proxies,
+        replace: true,
+      })
     }
 
     return swipeList.value[

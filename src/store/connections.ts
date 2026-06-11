@@ -40,11 +40,18 @@ export const isPaused = ref(false)
 export const downloadTotal = ref(0)
 export const uploadTotal = ref(0)
 
-let cancel: () => void
+let cancel: (() => void) | undefined
 let previousConnectionsMap = new Map<string, Connection>()
 
-export const initConnections = () => {
+export const stopConnections = () => {
   cancel?.()
+  cancel = undefined
+  activeConnections.value = []
+  previousConnectionsMap.clear()
+}
+
+export const initConnections = () => {
+  stopConnections()
   activeConnections.value = []
   closedConnections.value = []
   downloadTotal.value = 0

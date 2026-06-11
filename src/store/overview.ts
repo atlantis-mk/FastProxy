@@ -14,10 +14,18 @@ export const uploadSpeed = ref<number>(0)
 export const downloadSpeedHistory = ref([...initValue])
 export const uploadSpeedHistory = ref([...initValue])
 
-let cancel: () => void
+let cancel: (() => void) | undefined
+
+export const stopSatistic = () => {
+  cancel?.()
+  cancel = undefined
+  memory.value = 0
+  downloadSpeed.value = 0
+  uploadSpeed.value = 0
+}
 
 export const initSatistic = () => {
-  cancel?.()
+  stopSatistic()
 
   downloadSpeedHistory.value = [...initValue]
   uploadSpeedHistory.value = [...initValue]

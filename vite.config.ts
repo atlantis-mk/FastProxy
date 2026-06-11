@@ -6,6 +6,8 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { version } from './package.json'
 
+const backendProxyTarget = process.env.FASTPROXY_SERVER_PROXY_TARGET || 'http://127.0.0.1:43171'
+
 const getGitCommitId = (): string => {
   try {
     const commitMessage = execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim()
@@ -71,6 +73,15 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: backendProxyTarget,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

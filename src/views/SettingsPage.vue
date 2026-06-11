@@ -209,7 +209,7 @@ const getItemRef = (key: SETTINGS_MENU_KEY) => {
 }
 
 const isTriggerByClick = ref(false)
-const timeoutId = ref<number>()
+const timeoutId = ref<ReturnType<typeof setTimeout>>()
 
 const flashElement = (el: HTMLElement) => {
   el.classList.remove('highlight-flash')

@@ -16,9 +16,10 @@
             :class="[
               r === route.name ? 'menu-active' : '',
               isSidebarCollapsed && 'justify-center',
+              !isRouteAvailable(r) && 'cursor-not-allowed opacity-45',
               'py-2',
             ]"
-            @click.passive="() => router.push({ name: r })"
+            @click.passive="() => navigateTo(r)"
           >
             <component
               :is="ROUTE_ICON_MAP[r]"
@@ -50,7 +51,7 @@
 <script setup lang="ts">
 import CommonSidebar from '@/components/sidebar/CommonCtrl.vue'
 import { ROUTE_ICON_MAP } from '@/constant'
-import { renderRoutes } from '@/helper'
+import { isRouteAvailable, renderRoutes } from '@/helper'
 import { useTooltip } from '@/helper/tooltip'
 import router from '@/router'
 import { isSidebarCollapsed, showStatisticsWhenSidebarCollapsed } from '@/store/settings'
@@ -71,10 +72,15 @@ const { showTip } = useTooltip()
 const { t } = useI18n()
 
 const mouseenterHandler = (e: MouseEvent, r: string) => {
-  if (!isSidebarCollapsed.value) return
+  if (!isSidebarCollapsed.value && isRouteAvailable(r)) return
   showTip(e, t(r), {
     placement: 'right',
   })
+}
+
+const navigateTo = (routeName: string) => {
+  if (!isRouteAvailable(routeName)) return
+  router.push({ name: routeName })
 }
 
 const route = useRoute()

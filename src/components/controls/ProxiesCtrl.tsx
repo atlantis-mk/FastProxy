@@ -76,7 +76,11 @@ export default defineComponent({
 
     const defaultModes = ['direct', 'rule', 'global']
     const modeList = computed(() => {
-      return configs.value?.['mode-list'] || configs.value?.['modes'] || defaultModes
+      const configuredModes = configs.value?.['mode-list']?.length
+        ? configs.value['mode-list']
+        : configs.value?.modes
+
+      return configuredModes?.length ? configuredModes : defaultModes
     })
     const needTranslateModes = computed(() => {
       return every(modeList.value, (mode) => defaultModes.includes(mode.toLowerCase()))

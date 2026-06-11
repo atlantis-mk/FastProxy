@@ -140,10 +140,11 @@ import DashboardSettings from '@/components/common/DashboardSettings.vue'
 import TextInput from '@/components/common/TextInput.vue'
 import EditBackendModal from '@/components/settings/backend/EditBackendModal.vue'
 import LanguageSelect from '@/components/settings/general/LanguageSelect.vue'
+import { detectBackendFlavor } from '@/api/fastproxy'
 import { ROUTE_NAME } from '@/constant'
 import { syncSettingsFromCore } from '@/helper/autoImportSettings'
 import { showNotification } from '@/helper/notification'
-import { getBackendFromUrl, getLabelFromBackend, getUrlFromBackend } from '@/helper/utils'
+import { getBackendFromUrl, getLabelFromBackend } from '@/helper/utils'
 import router from '@/router'
 import { activeUuid, addBackend, backendList, removeBackend } from '@/store/setup'
 import type { Backend } from '@/types'
@@ -159,10 +160,10 @@ import Draggable from 'vuedraggable'
 const form = reactive({
   protocol: 'http',
   host: '127.0.0.1',
-  port: '9090',
+  port: '43171',
   secondaryPath: '',
   password: '',
-  label: '',
+  label: 'Local FastProxy',
 })
 
 const showEditModal = ref(false)
@@ -184,7 +185,7 @@ watch(
 
 const selectBackend = (uuid: string) => {
   activeUuid.value = uuid
-  router.push({ name: ROUTE_NAME.proxies })
+  router.push({ name: ROUTE_NAME.home })
 }
 
 const editBackend = (backend: Backend) => {
@@ -193,7 +194,7 @@ const editBackend = (backend: Backend) => {
 }
 
 const handleSubmit = async (form: Omit<Backend, 'uuid'>, quiet = false) => {
-  const { protocol, host, port, password } = form
+  const { protocol, host, port } = form
 
   if (!protocol || !host || !port) {
     alert('Please fill in all the fields.')
@@ -212,36 +213,23 @@ const handleSubmit = async (form: Omit<Backend, 'uuid'>, quiet = false) => {
   }
 
   try {
-    const data = await fetch(`${getUrlFromBackend(form)}/version`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${password}`,
-      },
-    })
-
-    if (data.status !== 200) {
-      if (!quiet) {
-        alert(data.statusText)
-      }
-      return
-    }
-
-    const { version, message } = await data.json()
-
-    if (!version) {
-      if (!quiet) {
-        alert(message)
-      }
+    const flavor = await detectBackendFlavor(form)
+    if (flavor === 'unknown') {
+      if (!quiet) alert('Backend is unavailable or unsupported.')
       return
     }
 
     addBackend(form)
-    const synced = await syncSettingsFromCore()
-    if (synced) {
+    if (flavor === 'controller') {
+      const synced = await syncSettingsFromCore()
+      if (synced) {
+        return
+      }
+      router.push({ name: ROUTE_NAME.proxies })
       return
     }
 
-    router.push({ name: ROUTE_NAME.proxies })
+    router.push({ name: ROUTE_NAME.home })
   } catch (e) {
     if (!quiet) {
       alert(e)

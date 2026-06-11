@@ -2,8 +2,12 @@ import {
   ArrowsRightLeftIcon,
   Cog6ToothIcon,
   CubeTransparentIcon,
+  CpuChipIcon,
   DocumentTextIcon,
   GlobeAltIcon,
+  HomeIcon,
+  LinkIcon,
+  QueueListIcon,
   SwatchIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -144,6 +148,11 @@ export enum LOG_LEVEL {
 }
 
 export enum ROUTE_NAME {
+  home = 'home',
+  kernelManagement = 'kernelManagement',
+  configManagement = 'configManagement',
+  configSubscriptions = 'configSubscriptions',
+  routingRules = 'routingRules',
   overview = 'overview',
   proxies = 'proxies',
   connections = 'connections',
@@ -154,6 +163,11 @@ export enum ROUTE_NAME {
 }
 
 export const ROUTE_ICON_MAP = {
+  [ROUTE_NAME.home]: HomeIcon,
+  [ROUTE_NAME.kernelManagement]: CpuChipIcon,
+  [ROUTE_NAME.configManagement]: CubeTransparentIcon,
+  [ROUTE_NAME.configSubscriptions]: LinkIcon,
+  [ROUTE_NAME.routingRules]: QueueListIcon,
   [ROUTE_NAME.overview]: CubeTransparentIcon,
   [ROUTE_NAME.proxies]: GlobeAltIcon,
   [ROUTE_NAME.connections]: ArrowsRightLeftIcon,

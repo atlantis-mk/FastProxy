@@ -1,0 +1,3 @@
+[submodule "FastProxy-Server"]
+	path = FastProxy-Server
+	url = https://github.com/atlantis-mk/FastProxy-Server.git

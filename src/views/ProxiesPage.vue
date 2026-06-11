@@ -62,6 +62,7 @@ import {
 } from '@/composables/proxies'
 import { PROXY_TAB_TYPE } from '@/constant'
 import { isMiddleScreen, PROXIES_PAGE } from '@/helper/utils'
+import { fetchConfigs } from '@/store/config'
 import { fetchProxies, proxiesTabShow } from '@/store/proxies'
 import { disableProxiesPageTextSelect, twoColumnProxyGroup } from '@/store/settings'
 import { folderManagerOpen, isProxyFolderModeActive } from '@/store/proxyFolders'
@@ -117,6 +118,7 @@ onMounted(() => {
     isProxiesPageMounted.value = true
     nextTick(() => {
       waitTickUntilReady()
+      fetchConfigs()
       fetchProxies()
     })
   })

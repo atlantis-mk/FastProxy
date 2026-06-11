@@ -1,5 +1,6 @@
 import { NOT_CONNECTED, PROXY_CHAIN_DIRECTION, PROXY_TYPE, ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
+import { fastProxyRuntimeStatus } from '@/store/fastproxyRepository'
 import { timeSaved } from '@/store/overview'
 import { hiddenGroupMap, proxyMap } from '@/store/proxies'
 import {
@@ -9,6 +10,7 @@ import {
   proxyChainDirection,
   splitOverviewPage,
 } from '@/store/settings'
+import { activeBackendFlavor } from '@/store/setup'
 import type { Connection } from '@/types'
 import dayjs from 'dayjs'
 import * as ipaddr from 'ipaddr.js'
@@ -142,10 +144,41 @@ export const getColorForLatency = (latency: number) => {
 }
 
 export const renderRoutes = computed(() => {
-  return Object.values(ROUTE_NAME).filter((r) => {
-    return ![ROUTE_NAME.setup, !splitOverviewPage.value && ROUTE_NAME.overview].includes(r)
-  })
+  return [
+    ROUTE_NAME.home,
+    ROUTE_NAME.kernelManagement,
+    ROUTE_NAME.configManagement,
+    ROUTE_NAME.configSubscriptions,
+    ROUTE_NAME.routingRules,
+    ...[
+      !splitOverviewPage.value ? null : ROUTE_NAME.overview,
+      ROUTE_NAME.proxies,
+      ROUTE_NAME.connections,
+      ROUTE_NAME.rules,
+      ROUTE_NAME.logs,
+      ROUTE_NAME.settings,
+    ].filter(Boolean),
+  ] as ROUTE_NAME[]
 })
+
+const runtimePanelRoutes = new Set<string | symbol | undefined>([
+  ROUTE_NAME.proxies,
+  ROUTE_NAME.connections,
+  ROUTE_NAME.rules,
+  ROUTE_NAME.logs,
+])
+
+export const isRouteAvailable = (routeName: string | symbol | undefined) => {
+  if (!routeName) {
+    return false
+  }
+
+  if (activeBackendFlavor.value === 'fastproxy' && runtimePanelRoutes.has(routeName)) {
+    return fastProxyRuntimeStatus.value?.state === 'running'
+  }
+
+  return true
+}
 
 export const applyCustomThemes = () => {
   document.querySelectorAll('.custom-theme').forEach((style) => {

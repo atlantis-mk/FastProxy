@@ -1,13 +1,18 @@
 import { ROUTE_NAME } from '@/constant'
-import { renderRoutes } from '@/helper'
+import { isRouteAvailable, renderRoutes } from '@/helper'
 import { i18n } from '@/i18n'
 import { language } from '@/store/settings'
 import { activeBackend } from '@/store/setup'
+import AppShell from '@/views/AppShell.vue'
+import ConfigManagementPage from '@/views/ConfigManagementPage.vue'
+import ConfigSubscriptionsPage from '@/views/ConfigSubscriptionsPage.vue'
 import ConnectionsPage from '@/views/ConnectionsPage.vue'
 import HomePage from '@/views/HomePage.vue'
+import KernelManagementPage from '@/views/KernelManagementPage.vue'
 import LogsPage from '@/views/LogsPage.vue'
 import OverviewPage from '@/views/OverviewPage.vue'
 import ProxiesPage from '@/views/ProxiesPage.vue'
+import RoutingRulesPage from '@/views/RoutingRulesPage.vue'
 import RulesPage from '@/views/RulesPage.vue'
 import SettingsPage from '@/views/SettingsPage.vue'
 import SetupPage from '@/views/SetupPage.vue'
@@ -16,6 +21,31 @@ import { watch } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const childrenRouter = [
+  {
+    path: '',
+    name: ROUTE_NAME.home,
+    component: HomePage,
+  },
+  {
+    path: 'kernel-management',
+    name: ROUTE_NAME.kernelManagement,
+    component: KernelManagementPage,
+  },
+  {
+    path: 'config-management',
+    name: ROUTE_NAME.configManagement,
+    component: ConfigManagementPage,
+  },
+  {
+    path: 'config-subscriptions',
+    name: ROUTE_NAME.configSubscriptions,
+    component: ConfigSubscriptionsPage,
+  },
+  {
+    path: 'routing-rules',
+    name: ROUTE_NAME.routingRules,
+    component: RoutingRulesPage,
+  },
   {
     path: 'proxies',
     name: ROUTE_NAME.proxies,
@@ -53,8 +83,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: ROUTE_NAME.proxies,
-      component: HomePage,
+      component: AppShell,
       children: childrenRouter,
     },
     {
@@ -64,7 +93,7 @@ const router = createRouter({
     },
     {
       path: '/:catchAll(.*)',
-      redirect: ROUTE_NAME.proxies,
+      redirect: ROUTE_NAME.home,
     },
   ],
 })
@@ -79,6 +108,10 @@ const setTitleByName = (name: string | symbol | undefined) => {
 }
 
 router.beforeEach((to, from) => {
+  if (!isRouteAvailable(to.name)) {
+    return { name: ROUTE_NAME.home }
+  }
+
   const toIndex = renderRoutes.value.findIndex((item) => item === to.name)
   const fromIndex = renderRoutes.value.findIndex((item) => item === from.name)
 
@@ -88,10 +121,6 @@ router.beforeEach((to, from) => {
     to.meta.transition = 'slide-right'
   } else if (toIndex !== fromIndex) {
     to.meta.transition = toIndex < fromIndex ? 'slide-right' : 'slide-left'
-  }
-
-  if (!activeBackend.value && to.name !== ROUTE_NAME.setup) {
-    router.push({ name: ROUTE_NAME.setup })
   }
 })
 
