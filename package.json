@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "build:binary": "./scripts/build-with-frontend.sh",
     "build:cdn-fonts": "vite build --mode cdn-fonts",
     "build:firasans-only": "vite build --mode FiraSans",
     "build:misans-only": "vite build --mode MiSans",

@@ -252,7 +252,6 @@ const en = {
   homeHeroDescription:
     'FastProxy now starts from a dedicated home view instead of dropping directly into proxy details. Use it as the operational front door for backend status, repository state, and profile flow.',
   homeSelectedCore: 'Selected core',
-  homeActiveProfile: 'Active profile',
   homeBackendAddress: 'Backend address',
   homeBackendAddressHint: 'Vite proxy in development, direct backend in production.',
   homeQuickProxyTitle: 'Open proxy workspace',
@@ -269,7 +268,6 @@ const en = {
     'This page is the new entry point for managing configuration subscriptions. Editing flows are still being filled in, but the route, layout, and current repository snapshot are ready.',
   configSubscriptionsTotal: 'Subscriptions',
   configSubscriptionsLoadedProfiles: '{count} profile(s) loaded',
-  configSubscriptionsActiveProfile: 'Active profile',
   configSubscriptionsAttachedCount: 'Attached to {count} profile(s)',
   configSubscriptionsPlaceholderTitle: 'Placeholder page',
   configSubscriptionsPlaceholderDescription:

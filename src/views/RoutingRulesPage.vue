@@ -16,7 +16,7 @@
             </summary>
 
             <div
-              class="dropdown-content bg-base-100 border-base-300 z-50 mt-2 w-60 rounded-xl border p-1 shadow-xl"
+              class="dropdown-content bg-base-100 border-base-300 z-50 mt-2 w-72 rounded-xl border p-1 shadow-xl"
             >
               <div class="flex items-center gap-2 px-2 py-1.5 text-sm font-medium">
                 <QueueListIcon class="h-4 w-4" />
@@ -25,19 +25,40 @@
               <div class="border-base-300 my-1 border-t" />
 
               <template v-if="routingPresets.length > 0">
-                <button
+                <div
                   v-for="preset in routingPresets"
                   :key="preset.id"
-                  class="hover:bg-base-200 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm"
-                  type="button"
-                  @click="applyRoutingPreset(preset.id)"
+                  class="hover:bg-base-200 flex w-full items-start gap-1 rounded-lg text-sm"
                 >
-                  <CheckIcon
-                    class="h-4 w-4 shrink-0"
-                    :class="selectedPresetId === preset.id ? 'opacity-100' : 'opacity-0'"
-                  />
-                  <span class="truncate">{{ preset.name }}</span>
-                </button>
+                  <button
+                    class="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 text-left"
+                    type="button"
+                    @click="applyRoutingPreset(preset.id)"
+                  >
+                    <CheckIcon
+                      class="mt-0.5 h-4 w-4 shrink-0"
+                      :class="selectedPresetId === preset.id ? 'opacity-100' : 'opacity-0'"
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate">{{ preset.name }}</span>
+                      <span
+                        v-if="preset.remoteConfigLabel || preset.remoteConfigUrl"
+                        class="text-base-content/55 mt-0.5 block truncate text-xs"
+                      >
+                        {{ preset.remoteConfigLabel || preset.remoteConfigUrl }}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    v-if="preset.custom"
+                    class="btn btn-ghost btn-xs btn-circle mt-1.5 mr-1 shrink-0"
+                    type="button"
+                    aria-label="删除预设"
+                    @click="removeCustomPreset(preset.id)"
+                  >
+                    <TrashIcon class="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </template>
               <div
                 v-else
@@ -61,11 +82,28 @@
           </div>
         </div>
 
-        <div
-          v-if="activeTab === 'groups'"
-          class="flex items-center gap-2"
-        >
+        <div class="flex items-center gap-2">
           <button
+            class="btn btn-sm btn-error btn-outline"
+            type="button"
+            :disabled="!selectedPreset || deletingPreset"
+            @click="deleteSelectedPreset"
+          >
+            <TrashIcon class="h-4 w-4" />
+            {{ deletingPreset ? '删除中...' : '删除配置' }}
+          </button>
+
+          <button
+            class="btn btn-sm btn-outline"
+            type="button"
+            @click="openAddPresetDialog"
+          >
+            <PlusIcon class="h-4 w-4" />
+            添加预设
+          </button>
+
+          <button
+            v-if="activeTab === 'groups'"
             class="btn btn-circle btn-sm max-sm:hidden"
             type="button"
             @click="toggleAllGroups"
@@ -90,19 +128,7 @@
           </button>
 
           <button
-            class="btn btn-sm btn-outline"
-            type="button"
-            @click="openAddGroupDialog"
-          >
-            添加分组
-          </button>
-        </div>
-
-        <div
-          v-else
-          class="flex items-center gap-2"
-        >
-          <button
+            v-else
             class="btn btn-circle btn-sm max-sm:hidden"
             type="button"
             @click="toggleAllRuleCards"
@@ -125,14 +151,6 @@
               />
             </svg>
           </button>
-
-          <button
-            class="btn btn-sm btn-outline"
-            type="button"
-            @click="openAddRuleCardDialog"
-          >
-            添加规则
-          </button>
         </div>
       </div>
     </CtrlsBar>
@@ -150,6 +168,7 @@
             :animation="150"
             ghost-class="routing-ghost"
             class="grid min-h-0 auto-rows-max grid-cols-1 content-start items-start gap-4 overflow-y-auto pr-1 md:grid-cols-2 xl:col-span-3"
+            @end="queueSaveRoutingWorkspace"
           >
             <template #item="{ element: group }">
               <RoutingRuleGroupBucket
@@ -227,6 +246,7 @@
             :animation="150"
             ghost-class="routing-ghost"
             class="grid h-full min-h-0 auto-rows-max grid-cols-1 content-start items-start gap-4 overflow-y-auto pr-1 md:grid-cols-2"
+            @end="queueSaveRoutingWorkspace"
           >
             <template #item="{ element: card }">
               <div class="min-h-0 self-start">
@@ -235,11 +255,13 @@
                   :available-rule-sets="availableRuleSetOptions"
                   :card="card"
                   :collapsed-ids="collapsedRuleCardIds"
+                  :rule-set-loading="ruleSetOptionsLoading"
                   @toggle-card="toggleRuleCard"
                   @edit-card="openEditRuleCardDialog"
                   @delete-card="deleteRuleCard"
                   @add-rule="addRuleToCard"
                   @remove-rule="removeRuleFromCard"
+                  @search-rule-sets="loadRuleSetOptions"
                   @update-enabled="updateRuleCardEnabled"
                   @update-outbound-target="updateRuleCardOutboundTarget"
                 />
@@ -250,6 +272,15 @@
       </div>
     </div>
 
+    <button
+      class="btn btn-primary shadow-base-content/20 absolute right-5 bottom-5 z-30 gap-2 shadow-lg"
+      type="button"
+      @click="openActiveAddDialog"
+    >
+      <PlusIcon class="h-4 w-4" />
+      {{ activeAddButtonLabel }}
+    </button>
+
     <DialogWrapper
       v-model="addGroupDialogOpen"
       :title="groupDialogTitle"
@@ -259,14 +290,12 @@
       <div class="p-1">
         <div class="grid gap-4">
           <label class="form-control gap-2">
-            <span class="label-text text-sm font-medium">{{
-              activeTab === 'groups' ? '分组名称' : '规则名称'
-            }}</span>
+            <span class="label-text text-sm font-medium">分组名称</span>
             <input
               v-model.trim="newGroupName"
               class="input input-bordered w-full"
               type="text"
-              :placeholder="activeTab === 'groups' ? '例如：Video Route' : '例如：Streaming Rule'"
+              placeholder="例如：Video Route"
             />
           </label>
 
@@ -419,16 +448,6 @@
     >
       <div class="p-1">
         <div class="grid gap-4">
-          <label class="form-control gap-2">
-            <span class="label-text text-sm font-medium">规则名称</span>
-            <input
-              v-model.trim="ruleCardName"
-              class="input input-bordered w-full"
-              type="text"
-              placeholder="例如：Streaming Rule"
-            />
-          </label>
-
           <div class="form-control">
             <label class="flex w-full items-center justify-between gap-4">
               <span class="label-text text-sm font-medium">启用</span>
@@ -452,10 +471,76 @@
           <button
             class="btn btn-primary btn-sm"
             type="button"
-            :disabled="!ruleCardName.trim()"
             @click="confirmRuleCardDialog"
           >
             确认
+          </button>
+        </div>
+      </div>
+    </DialogWrapper>
+
+    <DialogWrapper
+      v-model="presetDialogOpen"
+      title="添加预设"
+      box-class="max-w-lg"
+      @enter="confirmAddPreset"
+    >
+      <div class="grid gap-4">
+        <label class="form-control gap-2">
+          <span class="label-text text-sm font-medium">预设名称</span>
+          <input
+            v-model.trim="newPresetName"
+            class="input input-bordered w-full"
+            type="text"
+            placeholder="例如：自用规则"
+          />
+        </label>
+
+        <label class="form-control gap-2">
+          <span class="label-text text-sm font-medium">配置</span>
+          <input
+            v-model="newPresetRemoteConfigUrl"
+            class="input input-bordered w-full"
+            list="routing-remote-config-options"
+            type="url"
+            placeholder="输入远程配置 URL，或从候选中选择"
+          />
+          <datalist id="routing-remote-config-options">
+            <option
+              v-for="option in remoteConfigOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </datalist>
+          <span
+            v-if="selectedRemoteConfigUrl"
+            class="text-base-content/55 truncate text-xs"
+          >
+            {{
+              selectedRemoteConfig
+                ? `已选择：${selectedRemoteConfig.label}`
+                : selectedRemoteConfigUrl
+            }}
+          </span>
+        </label>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            class="btn btn-ghost btn-sm"
+            type="button"
+            @click="closePresetDialog"
+          >
+            取消
+          </button>
+          <button
+            class="btn btn-primary btn-sm"
+            type="button"
+            :disabled="!newPresetName.trim() || presetSaving"
+            @click="confirmAddPreset"
+          >
+            {{ presetSaving ? '生成中…' : '保存' }}
           </button>
         </div>
       </div>
@@ -468,6 +553,19 @@ import DialogWrapper from '@/components/common/DialogWrapper.vue'
 import CtrlsBar from '@/components/common/CtrlsBar.vue'
 import RoutingRuleCard from '@/components/routing/RoutingRuleCard.vue'
 import RoutingRuleGroupBucket from '@/components/routing/RoutingRuleGroupBucket.vue'
+import {
+  createMihomoRuleProviderAPI,
+  createGroupSetAPI,
+  createRoutingRuleSetAPI,
+  deleteGroupSetAPI,
+  deleteRoutingRuleSetAPI,
+  searchRuleSourceRepositoryIndexAPI,
+  updateGroupSetAPI,
+  updateMihomoRuleProviderAPI,
+  updateRoutingRuleSetAPI,
+} from '@/api/fastproxy'
+import { remoteConfigPresets } from '@/config/remoteConfigPresets'
+import { showNotification } from '@/helper/notification'
 import type {
   RoutingGroupMode,
   RoutingGroupReference,
@@ -483,27 +581,50 @@ import type {
   RoutingRuleTargetReference,
 } from '@/components/routing/RoutingRuleCard.vue'
 import {
-  fastProxyActiveProfile,
   fastProxyRepository,
+  fastProxySelectedCore,
+  fastProxySelectedRoutingRuleSetIds,
   loadFastProxyWorkspace,
+  updateFastProxyGlobalConfigFields,
 } from '@/store/fastproxyRepository'
 import type {
+  FastProxyCoreId,
+  FastProxyGroupSetResource,
+  FastProxyMihomoRuleProviderResource,
   FastProxyNormalizedGroup,
   FastProxyNormalizedNode,
   FastProxyNormalizedRule,
+  FastProxyRuleSetResource,
+  FastProxyRuleSourceIndexEntry,
+  FastProxyRoutingRuleCard,
 } from '@/types/fastproxy'
-import { Bars3Icon, CheckIcon, ChevronDownIcon, QueueListIcon } from '@heroicons/vue/24/outline'
-import { computed, onMounted, ref, watch } from 'vue'
+import {
+  Bars3Icon,
+  CheckIcon,
+  ChevronDownIcon,
+  PlusIcon,
+  QueueListIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline'
+import { useStorage } from '@vueuse/core'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Draggable from 'vuedraggable'
 
 const { t } = useI18n()
 
 type RoutingPresetOption = {
+  custom?: boolean
   groupSetIds: string[]
   id: string
   name: string
+  remoteConfigLabel?: string
+  remoteConfigUrl?: string
   ruleSetIds: string[]
+}
+
+type CustomRoutingPreset = RoutingPresetOption & {
+  custom: true
 }
 
 const activeTab = ref<'groups' | 'rules'>('groups')
@@ -513,8 +634,11 @@ const collapsedGroupIds = ref<string[]>([])
 const collapsedRuleCardIds = ref<string[]>([])
 const addGroupDialogOpen = ref(false)
 const ruleCardDialogOpen = ref(false)
+const presetDialogOpen = ref(false)
 const editingGroupId = ref<string | null>(null)
 const editingRuleCardId = ref<string | null>(null)
+const newPresetName = ref('')
+const newPresetRemoteConfigUrl = ref('')
 const newGroupName = ref('')
 const newGroupType = ref<RoutingGroupMode>('select')
 const newGroupEnabled = ref(true)
@@ -527,10 +651,8 @@ const newGroupLazy = ref(true)
 const newGroupStrategy = ref<'round-robin' | 'consistent-hashing' | 'sticky-sessions'>(
   'round-robin',
 )
-const ruleCardName = ref('')
 const ruleCardEnabled = ref(true)
 const nextEntryId = ref(1000)
-const nextGroupId = ref(3)
 const nextRuleCardId = ref(3)
 const nextRuleLeafId = ref(6)
 
@@ -539,7 +661,23 @@ const tabs = computed(() => [
   { key: 'rules' as const, label: t('rules') },
 ])
 
-const routingPresets = computed<RoutingPresetOption[]>(() => {
+const activeAddButtonLabel = computed(() =>
+  activeTab.value === 'groups' ? '添加分组' : '添加规则卡片',
+)
+
+const customRoutingPresets = useStorage<CustomRoutingPreset[]>('config/routing-custom-presets', [])
+
+const remoteConfigOptions = computed(() => remoteConfigPresets.flatMap((group) => group.options))
+
+const selectedRemoteConfig = computed(() => {
+  return remoteConfigOptions.value.find(
+    (option) => option.value === newPresetRemoteConfigUrl.value.trim(),
+  )
+})
+
+const selectedRemoteConfigUrl = computed(() => newPresetRemoteConfigUrl.value.trim())
+
+const repositoryRoutingPresets = computed<RoutingPresetOption[]>(() => {
   const presetMap = new Map<string, RoutingPresetOption>()
   for (const groupSet of repository.value?.groupSets || []) {
     const name = groupSet.name?.trim()
@@ -568,6 +706,23 @@ const routingPresets = computed<RoutingPresetOption[]>(() => {
   return [...presetMap.values()].sort((left, right) => left.name.localeCompare(right.name))
 })
 
+const routingPresets = computed<RoutingPresetOption[]>(() => {
+  const wrappedRepositoryPresetKeys = new Set(
+    customRoutingPresets.value.map((preset) =>
+      getPresetResourceKey(preset.groupSetIds, preset.ruleSetIds),
+    ),
+  )
+  const visibleRepositoryPresets = repositoryRoutingPresets.value.filter((preset) => {
+    return !wrappedRepositoryPresetKeys.has(
+      getPresetResourceKey(preset.groupSetIds, preset.ruleSetIds),
+    )
+  })
+
+  return [...visibleRepositoryPresets, ...customRoutingPresets.value].sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )
+})
+
 const selectedPreset = computed(() => {
   return routingPresets.value.find((preset) => preset.id === selectedPresetId.value) || null
 })
@@ -582,7 +737,7 @@ const groupDialogTitle = computed(() => {
 })
 
 const ruleCardDialogTitle = computed(() => {
-  return editingRuleCardId.value ? '编辑规则' : '添加规则'
+  return editingRuleCardId.value ? '编辑规则卡片' : '添加规则卡片'
 })
 
 const groupTypeOptions: Array<{ label: string; value: RoutingGroupMode }> = [
@@ -603,24 +758,16 @@ const supportsHealthCheck = computed(() => {
 })
 
 const repository = computed(() => fastProxyRepository.value)
-const activeProfile = computed(() => fastProxyActiveProfile.value)
 const profilePresetId = computed(() => {
-  const profile = activeProfile.value
-  if (!profile) return null
-
-  const profileGroupSetIds = profile.groupSetIds || []
-  const profileRuleSetIds = profile.ruleSetIds || []
-  if (!profileGroupSetIds.length && !profileRuleSetIds.length) return null
+  const configuredRuleSetIds = fastProxySelectedRoutingRuleSetIds.value
+  if (!configuredRuleSetIds.length) return null
 
   let bestPreset: RoutingPresetOption | null = null
   let bestScore = 0
 
   for (const preset of routingPresets.value) {
-    const presetGroupSetIds = new Set(preset.groupSetIds)
     const presetRuleSetIds = new Set(preset.ruleSetIds)
-    const matchedGroupSets = profileGroupSetIds.filter((id) => presetGroupSetIds.has(id)).length
-    const matchedRuleSets = profileRuleSetIds.filter((id) => presetRuleSetIds.has(id)).length
-    const score = matchedGroupSets + matchedRuleSets
+    const score = configuredRuleSetIds.filter((id) => presetRuleSetIds.has(id)).length
 
     if (score > bestScore) {
       bestPreset = preset
@@ -632,37 +779,49 @@ const profilePresetId = computed(() => {
 })
 const nodeResources = ref<RoutingNodeResource[]>([])
 const groups = ref<RoutingGroupResource[]>([])
-const availableRuleSetOptions = computed<RuleSetOption[]>(() => {
-  if (activeProfile.value?.selectedCore === 'sing-box') {
-    const builtIn = (repository.value?.ruleSourceIndexes || [])
-      .flatMap((index) => index.entries || [])
-      .filter((entry) => Boolean(entry.files['sing-box']))
-      .map((entry) => ({
-        value: entry.logicalPath,
-        label: entry.logicalPath,
-        description: `内置 · sing-box · ${entry.files['sing-box']?.format || '-'}`,
-      }))
-    const custom = (repository.value?.singBoxRuleSets || []).map((item) => ({
+const builtInRuleSetOptions = ref<RuleSetOption[]>([])
+const ruleSetOptionQuery = ref('')
+const ruleSetOptionSourceFilter = ref<'all' | RuleSetOption['source']>('built-in')
+const ruleSetOptionsLoading = ref(false)
+const ruleSetOptionsLoadToken = ref(0)
+const deletingPreset = ref(false)
+const presetSaving = ref(false)
+const saveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const savingWorkspace = ref(false)
+const saveQueuedWhileBusy = ref(false)
+const activeCore = computed<FastProxyCoreId>(() => fastProxySelectedCore.value)
+const ruleSourceRepositoryIds = computed(() => {
+  const repositoryIds = (repository.value?.ruleSourceRepositories || [])
+    .filter((item) => item.builtIn || item.supportedCores?.includes(activeCore.value))
+    .map((item) => item.id)
+  return repositoryIds.length > 0 ? repositoryIds : ['metacubex-meta-rules-dat']
+})
+const customRuleSetOptions = computed<RuleSetOption[]>(() => {
+  if (activeCore.value === 'sing-box') {
+    return (repository.value?.singBoxRuleSets || []).map((item) => ({
       value: item.tag,
       label: item.name,
       description: `自定义 · ${item.tag} · ${item.sourceMode}`,
+      source: 'custom' as const,
     }))
-    return dedupeRuleSetOptions([...builtIn, ...custom])
   }
-  const builtIn = (repository.value?.ruleSourceIndexes || [])
-    .flatMap((index) => index.entries || [])
-    .filter((entry) => Boolean(entry.files.mihomo))
-    .map((entry) => ({
-      value: entry.logicalPath,
-      label: entry.logicalPath,
-      description: `内置 · mihomo · ${entry.files.mihomo?.behavior || '-'} · ${entry.files.mihomo?.format || '-'}`,
-    }))
-  const custom = (repository.value?.mihomoRuleProviders || []).map((item) => ({
+
+  return (repository.value?.mihomoRuleProviders || []).map((item) => ({
     value: item.provider,
     label: item.name,
     description: `自定义 · ${item.provider} · ${item.sourceMode}`,
+    source: 'custom' as const,
   }))
-  return dedupeRuleSetOptions([...builtIn, ...custom])
+})
+const availableRuleSetOptions = computed<RuleSetOption[]>(() => {
+  const custom = filterRuleSetOptions(customRuleSetOptions.value, ruleSetOptionQuery.value)
+  if (ruleSetOptionSourceFilter.value === 'built-in') {
+    return builtInRuleSetOptions.value
+  }
+  if (ruleSetOptionSourceFilter.value === 'custom') {
+    return custom
+  }
+  return dedupeRuleSetOptions([...builtInRuleSetOptions.value, ...custom])
 })
 
 const dedupeRuleSetOptions = (items: RuleSetOption[]) => {
@@ -672,6 +831,80 @@ const dedupeRuleSetOptions = (items: RuleSetOption[]) => {
     seen.add(item.value)
     return true
   })
+}
+
+const filterRuleSetOptions = (items: RuleSetOption[], query: string) => {
+  const keyword = query.trim().toLowerCase()
+  if (!keyword) return items
+
+  return items.filter((item) =>
+    [item.label, item.value, item.description].some((field) =>
+      field.toLowerCase().includes(keyword),
+    ),
+  )
+}
+
+const ruleSourceEntryToRuleSetOption = (
+  entry: FastProxyRuleSourceIndexEntry,
+  core: FastProxyCoreId,
+): RuleSetOption | null => {
+  const file = entry.files?.[core]
+  if (!file) return null
+
+  return {
+    value: entry.logicalPath,
+    label: entry.logicalPath,
+    description:
+      core === 'sing-box'
+        ? `内置 · sing-box · ${file.format || '-'}`
+        : `内置 · mihomo · ${file.behavior || '-'} · ${file.format || '-'}`,
+    source: 'built-in',
+  }
+}
+
+const loadRuleSetOptions = async (options: {
+  query: string
+  source: 'all' | RuleSetOption['source']
+}) => {
+  const token = ruleSetOptionsLoadToken.value + 1
+  ruleSetOptionsLoadToken.value = token
+  ruleSetOptionQuery.value = options.query
+  ruleSetOptionSourceFilter.value = options.source
+
+  const repositoryIds = ruleSourceRepositoryIds.value
+  const core = activeCore.value
+  if (options.source === 'custom' || repositoryIds.length === 0) {
+    builtInRuleSetOptions.value = []
+    ruleSetOptionsLoading.value = false
+    return
+  }
+
+  ruleSetOptionsLoading.value = true
+  try {
+    const results = await Promise.allSettled(
+      repositoryIds.map((repositoryId) =>
+        searchRuleSourceRepositoryIndexAPI(repositoryId, options.query, {
+          core,
+          limit: 500,
+        }),
+      ),
+    )
+
+    if (ruleSetOptionsLoadToken.value !== token) return
+
+    builtInRuleSetOptions.value = dedupeRuleSetOptions(
+      results.flatMap((result) => {
+        if (result.status !== 'fulfilled') return []
+        return (result.value.data.entries || [])
+          .map((entry) => ruleSourceEntryToRuleSetOption(entry, core))
+          .filter((entry): entry is RuleSetOption => Boolean(entry))
+      }),
+    )
+  } finally {
+    if (ruleSetOptionsLoadToken.value === token) {
+      ruleSetOptionsLoading.value = false
+    }
+  }
 }
 const allGroupsCollapsed = computed(() => {
   return groups.value.length > 0 && collapsedGroupIds.value.length === groups.value.length
@@ -699,7 +932,9 @@ const resourcePool = computed(() => {
 })
 
 const canConfirmAddGroup = computed(() => {
-  if (!newGroupName.value.trim()) return false
+  const name = newGroupName.value.trim()
+  if (!name) return false
+  if (hasDuplicateGroupName(name, editingGroupId.value)) return false
   if (newGroupRegexEnabled.value && !newGroupMatchPattern.value.trim()) return false
 
   if (supportsHealthCheck.value) {
@@ -721,14 +956,16 @@ function createEntryId() {
   return `entry-${nextEntryId.value}`
 }
 
-function createGroupId() {
-  nextGroupId.value += 1
-  return `group-${nextGroupId.value}`
-}
-
 function createRuleId() {
   nextRuleCardId.value += 1
   return `rule-card-${nextRuleCardId.value}`
+}
+
+function hasDuplicateGroupName(name: string, currentGroupId: string | null = null) {
+  const normalizedName = name.trim()
+  return groups.value.some((group) => {
+    return group.name.trim() === normalizedName && group.id !== currentGroupId
+  })
 }
 
 function createNodeReference(nodeId: string): RoutingNodeReference {
@@ -810,6 +1047,7 @@ function confirmEntityDialog() {
   const interval = Number(newGroupInterval.value)
   const tolerance = Number(newGroupTolerance.value)
   if (!name) return
+  if (hasDuplicateGroupName(name, editingGroupId.value)) return
   if (newGroupRegexEnabled.value && !matchPattern) return
   if (supportsHealthCheck.value && !testUrl) return
 
@@ -830,20 +1068,58 @@ function confirmEntityDialog() {
     const targetGroup = groups.value.find((group) => group.id === editingGroupId.value)
     if (!targetGroup) return
 
-    Object.assign(targetGroup, payload)
+    const previousId = targetGroup.id
+    const previousName = targetGroup.name
+    Object.assign(targetGroup, { ...payload, id: name })
+    updateGroupReferences(previousId, previousName, name)
   } else {
-    const id = createGroupId()
     groups.value.push({
       ...payload,
-      id,
+      id: name,
       items: [],
       type: 'group',
     })
-    collapsedGroupIds.value = [...collapsedGroupIds.value, id]
+    collapsedGroupIds.value = [...collapsedGroupIds.value, name]
   }
 
   addGroupDialogOpen.value = false
   resetEntityDialogForm()
+  queueSaveRoutingWorkspace()
+}
+
+function updateGroupReferences(previousId: string, previousName: string, nextName: string) {
+  if (previousId === nextName && previousName === nextName) return
+
+  collapsedGroupIds.value = collapsedGroupIds.value.map((id) => (id === previousId ? nextName : id))
+
+  groups.value.forEach((group) => {
+    group.items = group.items.map((item) => {
+      if (item.type !== 'group') return item
+      if (item.id !== previousId && item.name !== previousName) return item
+      return {
+        ...item,
+        id: nextName,
+        name: nextName,
+      }
+    })
+  })
+
+  ruleCards.value.forEach((card) => {
+    if (
+      card.outboundTarget?.type === 'group' &&
+      (card.outboundTarget.id === previousId || card.outboundTarget.name === previousName)
+    ) {
+      card.outboundTarget = {
+        ...card.outboundTarget,
+        id: nextName,
+        name: nextName,
+      }
+      card.name = nextName
+    }
+    card.rules = card.rules.map((rule) =>
+      rule.target === previousName ? { ...rule, target: nextName } : rule,
+    )
+  })
 }
 
 function toggleActiveCard(cardId: string) {
@@ -869,6 +1145,7 @@ function removeItemFromCollection(
 
 function removeItemFromActiveCard(parentId: string, entryId: string) {
   removeItemFromCollection(groups.value, parentId, entryId)
+  queueSaveRoutingWorkspace()
 }
 
 function addResourcesToCollection(
@@ -888,6 +1165,7 @@ function addResourcesToCollection(
     })
 
   target.items.push(...newReferences)
+  queueSaveRoutingWorkspace()
 }
 
 function addResourcesToActiveCard(cardId: string, resources: RoutingItemReference[]) {
@@ -898,12 +1176,14 @@ function updateGroupItems(groupId: string, items: RoutingItemReference[]) {
   const targetGroup = groups.value.find((group) => group.id === groupId)
   if (!targetGroup) return
   targetGroup.items = items
+  queueSaveRoutingWorkspace()
 }
 
 function updateGroupEnabled(groupId: string, enabled: boolean) {
   const targetGroup = groups.value.find((group) => group.id === groupId)
   if (!targetGroup) return
   targetGroup.enabled = enabled
+  queueSaveRoutingWorkspace()
 }
 
 function groupDependsOn(
@@ -971,13 +1251,21 @@ function createRuleLeafId() {
 
 function resetRuleCardDialog() {
   editingRuleCardId.value = null
-  ruleCardName.value = ''
   ruleCardEnabled.value = true
 }
 
 function openAddRuleCardDialog() {
   resetRuleCardDialog()
   ruleCardDialogOpen.value = true
+}
+
+function openActiveAddDialog() {
+  if (activeTab.value === 'groups') {
+    openAddGroupDialog()
+    return
+  }
+
+  openAddRuleCardDialog()
 }
 
 function closePresetDropdown() {
@@ -989,12 +1277,538 @@ function applyRoutingPreset(presetId: string) {
   closePresetDropdown()
 }
 
+function createCustomPresetId() {
+  return `custom-preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function getPresetResourceKey(groupSetIds: string[], ruleSetIds: string[]) {
+  return `groups:${[...groupSetIds].sort().join('|')};rules:${[...ruleSetIds].sort().join('|')}`
+}
+
+function getPresetBaseIds() {
+  if (selectedPreset.value) {
+    return {
+      groupSetIds: [...selectedPreset.value.groupSetIds],
+      ruleSetIds: [...selectedPreset.value.ruleSetIds],
+    }
+  }
+
+  const configuredRuleSetIds = fastProxySelectedRoutingRuleSetIds.value
+
+  return {
+    groupSetIds: (repository.value?.groupSets || []).map((item) => item.id),
+    ruleSetIds: configuredRuleSetIds.length
+      ? [...configuredRuleSetIds]
+      : (repository.value?.routingRuleSets || []).map((item) => item.id),
+  }
+}
+
+type RemoteConfigParsedRuleProvider = {
+  name: string
+  url: string
+}
+
+type RemoteConfigParsedResult = {
+  groups: RoutingGroupResource[]
+  providers: RemoteConfigParsedRuleProvider[]
+  ruleCards: RoutingRuleCardResource[]
+}
+
+function stripRemoteConfigComment(line: string) {
+  const commentIndex = line.indexOf(';')
+  return (commentIndex >= 0 ? line.slice(0, commentIndex) : line).trim()
+}
+
+function createBuiltInOutboundReference(name: string): RoutingNodeReference {
+  return {
+    address: 'built-in outbound',
+    entryId: createEntryId(),
+    id: name,
+    name,
+    type: 'node',
+  }
+}
+
+function sanitizeRemoteProviderName(value: string) {
+  return value
+    .trim()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/\.(list|txt|yaml|yml|mrs)$/i, '')
+}
+
+function providerNameFromRemoteRuleSetUrl(url: string) {
+  try {
+    const parsedUrl = new URL(url)
+    const path = decodeURIComponent(parsedUrl.pathname)
+    const clashPath = path.split('/Clash/')[1]
+    const basePath = clashPath || path.split('/').slice(-2).join('/')
+    return (
+      sanitizeRemoteProviderName(basePath) || `remote-${Math.random().toString(36).slice(2, 8)}`
+    )
+  } catch {
+    return sanitizeRemoteProviderName(url) || `remote-${Math.random().toString(36).slice(2, 8)}`
+  }
+}
+
+function parseRemoteProxyGroupLine(line: string) {
+  const equalsIndex = line.indexOf('=')
+  const content = equalsIndex >= 0 ? line.slice(equalsIndex + 1) : ''
+  const parts = content
+    .split('`')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  const [name, rawType, ...tokens] = parts
+  if (!name) return null
+
+  const groupTypeMap: Record<string, RoutingGroupMode> = {
+    fallback: 'fallback',
+    load_balance: 'load-balance',
+    'load-balance': 'load-balance',
+    relay: 'relay',
+    select: 'select',
+    url_test: 'url-test',
+    'url-test': 'url-test',
+  }
+  const groupType = groupTypeMap[(rawType || 'select').toLowerCase()] || 'select'
+  const itemNames: string[] = []
+  let matchPattern = ''
+  let testUrl = ''
+  let interval: number | undefined
+  let tolerance: number | undefined
+
+  for (const token of tokens) {
+    if (token.startsWith('[]')) {
+      itemNames.push(token.slice(2).trim())
+      continue
+    }
+    if (/^https?:\/\//i.test(token)) {
+      testUrl = token
+      continue
+    }
+    if (/^\d+(,\d*){0,2}$/.test(token)) {
+      const [intervalValue, , toleranceValue] = token.split(',')
+      interval = Number(intervalValue) || undefined
+      tolerance = Number(toleranceValue) || undefined
+      continue
+    }
+    if (!matchPattern) {
+      matchPattern = token
+    }
+  }
+
+  return {
+    group: {
+      enabled: true,
+      groupType,
+      id: name,
+      interval,
+      items: [],
+      lazy: true,
+      matchPattern: matchPattern || undefined,
+      name,
+      regexEnabled: Boolean(matchPattern),
+      strategy: groupType === 'load-balance' ? ('round-robin' as const) : undefined,
+      testUrl: testUrl || undefined,
+      tolerance,
+      type: 'group' as const,
+    },
+    itemNames,
+  }
+}
+
+function parseRemoteRuleSetLine(line: string) {
+  const equalsIndex = line.indexOf('=')
+  const content = equalsIndex >= 0 ? line.slice(equalsIndex + 1) : ''
+  const commaIndex = content.indexOf(',')
+  if (commaIndex < 0) return null
+
+  const target = content.slice(0, commaIndex).trim()
+  const source = content.slice(commaIndex + 1).trim()
+  if (!target || !source) return null
+
+  if (/^https?:\/\//i.test(source)) {
+    const provider = {
+      name: providerNameFromRemoteRuleSetUrl(source),
+      url: source,
+    }
+    return {
+      provider,
+      rule: {
+        condition: 'RULE-SET',
+        target,
+        value: provider.name,
+      },
+      target,
+    }
+  }
+
+  if (source.startsWith('[]')) {
+    const [condition = '', ...values] = source
+      .slice(2)
+      .split(',')
+      .map((item) => item.trim())
+    const normalizedCondition = condition.toUpperCase() === 'FINAL' ? 'MATCH' : condition
+    return {
+      rule: {
+        condition: normalizedCondition,
+        target,
+        value: normalizedCondition === 'MATCH' ? '*' : values.join(','),
+      },
+      target,
+    }
+  }
+
+  return null
+}
+
+function createRemoteRuleCard(
+  target: string,
+  rules: Array<{ condition: string; target: string; value: string }>,
+  groupLookup: Map<string, RoutingGroupResource>,
+): RoutingRuleCardResource {
+  const groupTarget = groupLookup.get(target)
+  const outboundTarget: RoutingRuleTargetReference = groupTarget
+    ? { id: groupTarget.id, name: groupTarget.name, type: 'group' }
+    : { id: target, name: target, type: 'node' }
+
+  return {
+    enabled: true,
+    id: createRuleId(),
+    name: target,
+    outboundTarget,
+    rules: rules.map((rule) => ({
+      condition: rule.condition,
+      id: createRuleLeafId(),
+      target: rule.target,
+      value: rule.value,
+    })),
+  }
+}
+
+function parseRemoteRoutingConfig(content: string): RemoteConfigParsedResult {
+  const parsedGroups = []
+  const rulesByTarget = new Map<
+    string,
+    Array<{ condition: string; target: string; value: string }>
+  >()
+  const providersByUrl = new Map<string, RemoteConfigParsedRuleProvider>()
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = stripRemoteConfigComment(rawLine)
+    if (!line) continue
+
+    if (line.startsWith('custom_proxy_group=')) {
+      const parsed = parseRemoteProxyGroupLine(line)
+      if (parsed) parsedGroups.push(parsed)
+      continue
+    }
+
+    if (line.startsWith('ruleset=')) {
+      const parsed = parseRemoteRuleSetLine(line)
+      if (!parsed) continue
+      if (parsed.provider) providersByUrl.set(parsed.provider.url, parsed.provider)
+      const rules = rulesByTarget.get(parsed.target) || []
+      rules.push(parsed.rule)
+      rulesByTarget.set(parsed.target, rules)
+    }
+  }
+
+  const groupLookup = new Map(parsedGroups.map((item) => [item.group.name, item.group]))
+  const nodeLookup = new Map(nodeResources.value.map((node) => [node.name, node]))
+  const groups = parsedGroups.map(({ group, itemNames }) => ({
+    ...group,
+    items: itemNames
+      .map((itemName) => {
+        const groupRef = groupLookup.get(itemName)
+        if (groupRef) {
+          return {
+            entryId: createEntryId(),
+            id: groupRef.id,
+            name: groupRef.name,
+            type: 'group' as const,
+          }
+        }
+        const nodeRef = nodeLookup.get(itemName)
+        if (nodeRef) {
+          return {
+            address: nodeRef.address,
+            entryId: createEntryId(),
+            id: nodeRef.id,
+            name: nodeRef.name,
+            type: 'node' as const,
+          }
+        }
+        return createBuiltInOutboundReference(itemName)
+      })
+      .filter((item) => canDropItemIntoParsedGroup(item, group, groupLookup)),
+  }))
+
+  return {
+    groups,
+    providers: [...providersByUrl.values()],
+    ruleCards: [...rulesByTarget.entries()].map(([target, rules]) =>
+      createRemoteRuleCard(target, rules, groupLookup),
+    ),
+  }
+}
+
+function parsedGroupDependsOn(
+  sourceGroupId: string,
+  targetGroupId: string,
+  groupLookup: Map<string, RoutingGroupResource>,
+  visited = new Set<string>(),
+): boolean {
+  if (sourceGroupId === targetGroupId) return true
+  if (visited.has(sourceGroupId)) return false
+
+  visited.add(sourceGroupId)
+  const sourceGroup = [...groupLookup.values()].find((group) => group.id === sourceGroupId)
+  if (!sourceGroup) return false
+
+  return sourceGroup.items.some((item) => {
+    return (
+      item.type === 'group' && parsedGroupDependsOn(item.id, targetGroupId, groupLookup, visited)
+    )
+  })
+}
+
+function canDropItemIntoParsedGroup(
+  item: RoutingItemReference,
+  targetGroup: RoutingGroupResource,
+  groupLookup: Map<string, RoutingGroupResource>,
+) {
+  if (targetGroup.regexEnabled) return false
+  if (item.type !== 'group') return true
+  if (item.id === targetGroup.id) return false
+  return !parsedGroupDependsOn(item.id, targetGroup.id, groupLookup)
+}
+
+function matchNodesByPattern(pattern: string) {
+  if (!pattern) return []
+  return nodeResources.value.filter((node) => {
+    try {
+      const regex = new RegExp(pattern, 'i')
+      return regex.test(node.name) || regex.test(node.address)
+    } catch {
+      const keyword = pattern.toLowerCase()
+      return (
+        node.name.toLowerCase().includes(keyword) || node.address.toLowerCase().includes(keyword)
+      )
+    }
+  })
+}
+
+function buildGroupOutbounds(group: RoutingGroupResource) {
+  const outbounds = group.regexEnabled
+    ? matchNodesByPattern(group.matchPattern?.trim() || '').map((node) => node.name)
+    : group.items.map((item) => item.name)
+
+  return outbounds.length > 0 ? outbounds : ['DIRECT']
+}
+
+async function fetchRemoteRoutingConfig(url: string) {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`远程配置请求失败：${response.status}`)
+  }
+  return response.text()
+}
+
+function inferRemoteRuleProviderBehavior(url: string) {
+  const lowerUrl = url.toLowerCase()
+  if (lowerUrl.includes('ip') || lowerUrl.includes('cidr')) return 'ipcidr'
+  return 'classical'
+}
+
+function buildRemoteMihomoProviderPayload(provider: RemoteConfigParsedRuleProvider) {
+  return {
+    behavior: inferRemoteRuleProviderBehavior(provider.url),
+    format: 'text',
+    interval: '86400',
+    name: provider.name,
+    provider: provider.name,
+    sourceMode: 'remote' as const,
+    url: provider.url,
+  }
+}
+
+async function ensureRemoteMihomoRuleProviders(providers: RemoteConfigParsedRuleProvider[]) {
+  const existingProviders = repository.value?.mihomoRuleProviders || []
+  const existingByName = new Map(existingProviders.map((provider) => [provider.provider, provider]))
+
+  await Promise.all(
+    providers.map(async (provider) => {
+      const payload = buildRemoteMihomoProviderPayload(provider)
+      const existingBySameName = existingByName.get(provider.name)
+
+      if (existingBySameName) {
+        const existing = existingBySameName as FastProxyMihomoRuleProviderResource
+        await updateMihomoRuleProviderAPI(existing.id, {
+          ...existing,
+          ...payload,
+        })
+        return
+      }
+
+      await createMihomoRuleProviderAPI(payload)
+    }),
+  )
+}
+
+async function createRemotePresetResources(name: string, remoteConfigUrl: string) {
+  const content = await fetchRemoteRoutingConfig(remoteConfigUrl)
+  const parsed = parseRemoteRoutingConfig(content)
+  if (parsed.groups.length === 0 && parsed.ruleCards.length === 0) {
+    throw new Error('远程配置中没有可解析的 custom_proxy_group 或 ruleset')
+  }
+
+  await ensureRemoteMihomoRuleProviders(parsed.providers)
+  const groupPayload: Partial<FastProxyGroupSetResource> = {
+    groups: parsed.groups.map((group) => {
+      return {
+        id: group.id,
+        outbounds: buildGroupOutbounds(group),
+        raw: buildGroupRaw(group),
+        tag: group.name,
+        type: group.groupType,
+      }
+    }),
+    name,
+  }
+  const rulePayload: Partial<FastProxyRuleSetResource> = {
+    name,
+    ruleCards: parsed.ruleCards.map((card) => ({
+      enabled: card.enabled,
+      id: card.id,
+      name: card.name,
+      outboundTarget: card.outboundTarget,
+      rules: card.rules,
+    })),
+    rules: parsed.ruleCards.flatMap((card) =>
+      card.rules.map((rule) => buildNormalizedRuleFromLeaf(rule)),
+    ),
+    supportedCores: ['mihomo'],
+  }
+
+  const [groupResult, ruleResult] = await Promise.all([
+    createGroupSetAPI(groupPayload),
+    createRoutingRuleSetAPI(rulePayload),
+  ])
+
+  return {
+    groupSetIds: [groupResult.data.id],
+    ruleSetIds: [ruleResult.data.id],
+  }
+}
+
+function resetPresetDialog() {
+  newPresetName.value = ''
+  newPresetRemoteConfigUrl.value = ''
+}
+
+function openAddPresetDialog() {
+  resetPresetDialog()
+  presetDialogOpen.value = true
+}
+
+function closePresetDialog() {
+  presetDialogOpen.value = false
+  resetPresetDialog()
+}
+
+async function confirmAddPreset() {
+  const name = newPresetName.value.trim()
+  if (!name || presetSaving.value) return
+
+  const remoteConfigUrl = selectedRemoteConfigUrl.value
+  const remoteConfig = selectedRemoteConfig.value
+  presetSaving.value = true
+  try {
+    const baseIds = remoteConfigUrl
+      ? await createRemotePresetResources(name, remoteConfigUrl)
+      : getPresetBaseIds()
+    const preset: CustomRoutingPreset = {
+      custom: true,
+      groupSetIds: baseIds.groupSetIds,
+      id: createCustomPresetId(),
+      name,
+      remoteConfigLabel: remoteConfig?.label,
+      remoteConfigUrl: remoteConfigUrl || undefined,
+      ruleSetIds: baseIds.ruleSetIds,
+    }
+
+    customRoutingPresets.value = [...customRoutingPresets.value, preset]
+    await loadFastProxyWorkspace().catch(() => null)
+    selectedPresetId.value = preset.id
+    presetDialogOpen.value = false
+    resetPresetDialog()
+    closePresetDropdown()
+    showNotification({
+      content: remoteConfigUrl ? '远程预设已生成' : '预设已保存',
+      type: 'alert-success',
+    })
+  } catch (error) {
+    showNotification({
+      content: extractErrorMessage(error, '添加预设失败'),
+      type: 'alert-error',
+      timeout: 5000,
+    })
+  } finally {
+    presetSaving.value = false
+  }
+}
+
+function removeCustomPreset(presetId: string) {
+  customRoutingPresets.value = customRoutingPresets.value.filter((preset) => preset.id !== presetId)
+  if (selectedPresetId.value === presetId) {
+    selectedPresetId.value = profilePresetId.value
+  }
+}
+
+async function deleteSelectedPreset() {
+  const preset = selectedPreset.value
+  if (!preset || deletingPreset.value) return
+
+  const confirmed = window.confirm(`确认删除配置“${preset.name}”吗？`)
+  if (!confirmed) return
+
+  deletingPreset.value = true
+  try {
+    if (preset.custom) {
+      if (preset.remoteConfigUrl) {
+        await Promise.all([
+          ...preset.ruleSetIds.map((id) => deleteRoutingRuleSetAPI(id)),
+          ...preset.groupSetIds.map((id) => deleteGroupSetAPI(id)),
+        ])
+        await loadFastProxyWorkspace()
+      }
+      removeCustomPreset(preset.id)
+    } else {
+      await Promise.all([
+        ...preset.ruleSetIds.map((id) => deleteRoutingRuleSetAPI(id)),
+        ...preset.groupSetIds.map((id) => deleteGroupSetAPI(id)),
+      ])
+      await loadFastProxyWorkspace()
+    }
+
+    selectedPresetId.value = null
+    showNotification({ content: '配置已删除', type: 'alert-success' })
+  } catch (error) {
+    showNotification({
+      content: extractErrorMessage(error, '删除配置失败'),
+      type: 'alert-error',
+      timeout: 5000,
+    })
+  } finally {
+    deletingPreset.value = false
+  }
+}
+
 function openEditRuleCardDialog(cardId: string) {
   const targetCard = ruleCards.value.find((card) => card.id === cardId)
   if (!targetCard) return
 
   editingRuleCardId.value = cardId
-  ruleCardName.value = targetCard.name
   ruleCardEnabled.value = targetCard.enabled
   ruleCardDialogOpen.value = true
 }
@@ -1005,21 +1819,17 @@ function closeRuleCardDialog() {
 }
 
 function confirmRuleCardDialog() {
-  const name = ruleCardName.value.trim()
-  if (!name) return
-
   if (editingRuleCardId.value) {
     const targetCard = ruleCards.value.find((card) => card.id === editingRuleCardId.value)
     if (!targetCard) return
 
-    targetCard.name = name
     targetCard.enabled = ruleCardEnabled.value
   } else {
     const id = createRuleId()
     ruleCards.value.push({
       enabled: ruleCardEnabled.value,
       id,
-      name,
+      name: '未选择出站',
       outboundTarget: null,
       rules: [],
     })
@@ -1028,6 +1838,7 @@ function confirmRuleCardDialog() {
 
   ruleCardDialogOpen.value = false
   resetRuleCardDialog()
+  queueSaveRoutingWorkspace()
 }
 
 function toggleRuleCard(cardId: string) {
@@ -1043,19 +1854,46 @@ function toggleAllRuleCards() {
 }
 
 function deleteGroup(groupId: string) {
+  const deletedGroup = groups.value.find((group) => group.id === groupId)
+  const deletedGroupName = deletedGroup?.name
+
   groups.value = groups.value.filter((group) => group.id !== groupId)
+  groups.value.forEach((group) => {
+    group.items = group.items.filter((item) => item.type !== 'group' || item.id !== groupId)
+  })
   collapsedGroupIds.value = collapsedGroupIds.value.filter((id) => id !== groupId)
+
+  ruleCards.value = ruleCards.value.flatMap((card) => {
+    const targetsDeletedGroup =
+      card.outboundTarget?.type === 'group' &&
+      (card.outboundTarget.id === groupId || card.outboundTarget.name === deletedGroupName)
+    if (targetsDeletedGroup) return []
+
+    return [
+      {
+        ...card,
+        rules: card.rules.filter((rule) => rule.target !== deletedGroupName),
+      },
+    ]
+  })
+  collapsedRuleCardIds.value = collapsedRuleCardIds.value.filter((id) =>
+    ruleCards.value.some((card) => card.id === id),
+  )
+
+  queueSaveRoutingWorkspace()
 }
 
 function deleteRuleCard(cardId: string) {
   ruleCards.value = ruleCards.value.filter((card) => card.id !== cardId)
   collapsedRuleCardIds.value = collapsedRuleCardIds.value.filter((id) => id !== cardId)
+  queueSaveRoutingWorkspace()
 }
 
 function updateRuleCardEnabled(cardId: string, enabled: boolean) {
   const targetCard = ruleCards.value.find((card) => card.id === cardId)
   if (!targetCard) return
   targetCard.enabled = enabled
+  queueSaveRoutingWorkspace()
 }
 
 function updateRuleCardOutboundTarget(cardId: string, target: RoutingItemReference) {
@@ -1069,10 +1907,12 @@ function updateRuleCardOutboundTarget(cardId: string, target: RoutingItemReferen
   }
 
   targetCard.outboundTarget = outboundTarget
+  targetCard.name = outboundTarget.name
   targetCard.rules = targetCard.rules.map((rule) => ({
     ...rule,
     target: target.name,
   }))
+  queueSaveRoutingWorkspace()
 }
 
 function addRuleToCard(cardId: string, rule: RoutingRuleDraft) {
@@ -1085,6 +1925,7 @@ function addRuleToCard(cardId: string, rule: RoutingRuleDraft) {
     target: rule.target,
     value: rule.value,
   })
+  queueSaveRoutingWorkspace()
 }
 
 function removeRuleFromCard(cardId: string, ruleId: string) {
@@ -1092,9 +1933,11 @@ function removeRuleFromCard(cardId: string, ruleId: string) {
   if (!targetCard) return
 
   targetCard.rules = targetCard.rules.filter((rule) => rule.id !== ruleId)
+  queueSaveRoutingWorkspace()
 }
 
 const RULE_RESERVED_KEYS = new Set(['id', 'type', 'mode', 'rules', 'action', 'outbound', 'raw'])
+const SAVE_DEBOUNCE_MS = 500
 
 function mapSingBoxGroupType(type: string): RoutingGroupMode {
   switch (type) {
@@ -1108,14 +1951,8 @@ function mapSingBoxGroupType(type: string): RoutingGroupMode {
 }
 
 function getActiveNodes(): FastProxyNormalizedNode[] {
-  const nodeSetIds = new Set(activeProfile.value?.nodeSetIds || [])
-  const nodeSets = repository.value?.nodeSets || []
-  const selectedNodeSets = nodeSetIds.size
-    ? nodeSets.filter((item) => nodeSetIds.has(item.id))
-    : nodeSets
-  return selectedNodeSets.flatMap((item) => item.nodes || [])
+  return (repository.value?.nodeSets || []).flatMap((item) => item.nodes || [])
 }
-
 
 function getActiveGroups(): FastProxyNormalizedGroup[] {
   if (selectedPreset.value) {
@@ -1124,12 +1961,7 @@ function getActiveGroups(): FastProxyNormalizedGroup[] {
       .filter((item) => selectedIds.has(item.id))
       .flatMap((item) => item.groups || [])
   }
-  const groupSetIds = new Set(activeProfile.value?.groupSetIds || [])
-  const groupSets = repository.value?.groupSets || []
-  const selectedGroupSets = groupSetIds.size
-    ? groupSets.filter((item) => groupSetIds.has(item.id))
-    : groupSets
-  return selectedGroupSets.flatMap((item) => item.groups || [])
+  return (repository.value?.groupSets || []).flatMap((item) => item.groups || [])
 }
 
 function getActiveRules(): FastProxyNormalizedRule[] {
@@ -1139,12 +1971,27 @@ function getActiveRules(): FastProxyNormalizedRule[] {
       .filter((item) => selectedIds.has(item.id))
       .flatMap((item) => item.rules || [])
   }
-  const ruleSetIds = new Set(activeProfile.value?.ruleSetIds || [])
+  const ruleSetIds = new Set(fastProxySelectedRoutingRuleSetIds.value)
   const ruleSets = repository.value?.routingRuleSets || []
   const selectedRuleSets = ruleSetIds.size
     ? ruleSets.filter((item) => ruleSetIds.has(item.id))
     : ruleSets
   return selectedRuleSets.flatMap((item) => item.rules || [])
+}
+
+function getActiveStoredRuleCards(): FastProxyRoutingRuleCard[] {
+  if (selectedPreset.value) {
+    const selectedIds = new Set(selectedPreset.value.ruleSetIds)
+    return (repository.value?.routingRuleSets || [])
+      .filter((item) => selectedIds.has(item.id))
+      .flatMap((item) => item.ruleCards || [])
+  }
+  const ruleSetIds = new Set(fastProxySelectedRoutingRuleSetIds.value)
+  const ruleSets = repository.value?.routingRuleSets || []
+  const selectedRuleSets = ruleSetIds.size
+    ? ruleSets.filter((item) => ruleSetIds.has(item.id))
+    : ruleSets
+  return selectedRuleSets.flatMap((item) => item.ruleCards || [])
 }
 
 function buildNodeResources(
@@ -1202,22 +2049,54 @@ function createReferenceFromTag(
   return null
 }
 
+function reserveUniqueId(
+  preferredId: string | undefined,
+  fallbackId: string,
+  usedIds: Set<string>,
+) {
+  const baseId = preferredId?.trim() || fallbackId
+  let id = baseId
+  let suffix = 2
+  while (usedIds.has(id)) {
+    id = `${baseId}-${suffix}`
+    suffix += 1
+  }
+  usedIds.add(id)
+  return id
+}
+
 function buildGroupsFromSource(
   groupsSource: FastProxyNormalizedGroup[],
   nodeSource: RoutingNodeResource[],
 ): RoutingGroupResource[] {
+  const usedGroupIds = new Set<string>()
+  const normalizedGroups = groupsSource.map((group, index) => ({
+    group,
+    id: reserveUniqueId(group.id, `group-${index + 1}`, usedGroupIds),
+  }))
   const groupLookup = new Map(
-    groupsSource.map((group) => [group.tag, { id: group.id, name: group.tag }]),
+    normalizedGroups.map(({ group, id }) => [group.tag, { id, name: group.tag }]),
   )
   const nodeLookup = new Map(nodeSource.map((node) => [node.id, node]))
 
-  return groupsSource.map((group) => ({
+  return normalizedGroups.map(({ group, id }) => ({
     enabled: true,
     groupType: mapSingBoxGroupType(group.type),
-    id: group.id,
-    type: 'group',
+    id,
+    interval: typeof group.raw?.interval === 'number' ? group.raw.interval : undefined,
+    lazy: typeof group.raw?.lazy === 'boolean' ? group.raw.lazy : undefined,
     name: group.tag,
+    raw: group.raw,
     regexEnabled: false,
+    strategy:
+      group.raw?.strategy === 'round-robin' ||
+      group.raw?.strategy === 'consistent-hashing' ||
+      group.raw?.strategy === 'sticky-sessions'
+        ? group.raw.strategy
+        : undefined,
+    testUrl: typeof group.raw?.url === 'string' ? group.raw.url : undefined,
+    tolerance: typeof group.raw?.tolerance === 'number' ? group.raw.tolerance : undefined,
+    type: 'group',
     items: (group.outbounds || [])
       .map((outbound) => createReferenceFromTag(outbound, groupLookup, nodeLookup))
       .filter((item): item is RoutingItemReference => item !== null),
@@ -1281,6 +2160,17 @@ function buildRuleLeafs(rule: FastProxyNormalizedRule, outboundName: string) {
   }))
 }
 
+function getRuleCardSignature(card: Pick<RoutingRuleCardResource, 'rules' | 'outboundTarget'>) {
+  return JSON.stringify({
+    outbound: card.outboundTarget?.name || '',
+    rules: card.rules.map((rule) => ({
+      condition: rule.condition,
+      target: rule.target,
+      value: rule.value,
+    })),
+  })
+}
+
 function buildRuleCardsFromSource(
   rulesSource: FastProxyNormalizedRule[],
   groupsSource: RoutingGroupResource[],
@@ -1299,19 +2189,240 @@ function buildRuleCardsFromSource(
         ? { id: nodeTarget.id, name: nodeTarget.name, type: 'node' }
         : { id: outboundName, name: outboundName, type: 'node' }
 
-    return {
+    const card = {
       enabled: true,
       id: rule.id,
-      name: rule.raw?.[0] || `Rule ${index + 1}`,
+      name: outboundName || `Rule ${index + 1}`,
       outboundTarget,
       rules: buildRuleLeafs(rule, outboundName),
+      sourceRule: rule,
+      sourceSignature: '',
+    }
+    card.sourceSignature = getRuleCardSignature(card)
+    return card
+  })
+}
+
+function buildRuleCardsFromStoredCards(
+  cards: FastProxyRoutingRuleCard[],
+): RoutingRuleCardResource[] {
+  return cards.map((card) => ({
+    enabled: card.enabled !== false,
+    id: card.id,
+    name: card.name,
+    outboundTarget: card.outboundTarget
+      ? {
+          id: card.outboundTarget.id,
+          name: card.outboundTarget.name,
+          type: card.outboundTarget.type === 'group' ? 'group' : 'node',
+        }
+      : null,
+    rules: card.rules || [],
+    sourceRule: card.sourceRule,
+    sourceSignature: card.sourceSignature,
+  }))
+}
+
+function serializeRuleCards(): FastProxyRoutingRuleCard[] {
+  return ruleCards.value.map((card) => ({
+    enabled: card.enabled,
+    id: card.id,
+    name: card.outboundTarget?.name || card.name,
+    outboundTarget: card.outboundTarget,
+    rules: card.rules,
+    sourceRule: card.sourceRule,
+    sourceSignature: card.sourceSignature,
+  }))
+}
+
+function getActivePersistenceTargets() {
+  const preset = selectedPreset.value
+  const repositoryValue = repository.value
+  const configuredRuleSetId = fastProxySelectedRoutingRuleSetIds.value[0]
+
+  return {
+    groupSetId: preset?.groupSetIds[0] || repositoryValue?.groupSets[0]?.id || null,
+    ruleSetId:
+      preset?.ruleSetIds[0] ||
+      configuredRuleSetId ||
+      repositoryValue?.routingRuleSets[0]?.id ||
+      null,
+    name: preset?.name || 'Routing Rules',
+  }
+}
+
+function buildGroupRaw(group: RoutingGroupResource) {
+  const raw = { ...(group.raw || {}) }
+  if (group.testUrl) raw.url = group.testUrl
+  if (typeof group.interval === 'number') raw.interval = group.interval
+  if (typeof group.tolerance === 'number') raw.tolerance = group.tolerance
+  if (typeof group.lazy === 'boolean') raw.lazy = group.lazy
+  if (group.strategy) raw.strategy = group.strategy
+  return raw
+}
+
+function buildNormalizedGroups(): FastProxyNormalizedGroup[] {
+  return groups.value.map((group) => {
+    return {
+      id: group.id,
+      outbounds: buildGroupOutbounds(group),
+      raw: buildGroupRaw(group),
+      tag: group.name,
+      type: group.groupType,
     }
   })
+}
+
+function normalizeRuleValue(value: string | string[]) {
+  return Array.isArray(value) ? value : [value]
+}
+
+function getClashRuleType(condition: string) {
+  const ruleKey = condition.toLowerCase().replaceAll('-', '_')
+  const ruleTypeMap: Record<string, string> = {
+    domain: 'DOMAIN',
+    domain_keyword: 'DOMAIN-KEYWORD',
+    domain_regex: 'DOMAIN-REGEX',
+    domain_suffix: 'DOMAIN-SUFFIX',
+    geoip: 'GEOIP',
+    geosite: 'GEOSITE',
+    ip_cidr: 'IP-CIDR',
+    package_name: 'PROCESS-NAME',
+    port: 'DST-PORT',
+    process_name: 'PROCESS-NAME',
+    rule_set: 'RULE-SET',
+  }
+  return ruleTypeMap[ruleKey] || ruleKey.toUpperCase().replaceAll('_', '-')
+}
+
+function buildRawRuleLines(condition: string, value: string | string[], target: string) {
+  const ruleType = getClashRuleType(condition)
+  if (ruleType === 'MATCH') return [`MATCH,${target}`]
+  return normalizeRuleValue(value).map((item) => `${ruleType},${item},${target}`)
+}
+
+function buildNormalizedRuleFromLeaf(rule: RoutingRuleCardResource['rules'][number]) {
+  const ruleKey = rule.condition.toLowerCase().replaceAll('-', '_')
+  const normalized: FastProxyNormalizedRule = {
+    id: rule.id,
+    outbound: rule.target,
+    raw: buildRawRuleLines(ruleKey, rule.value, rule.target),
+  }
+
+  if (ruleKey !== 'match') {
+    const ruleValues = normalizeRuleValue(rule.value)
+    normalized[ruleKey] = ruleValues
+  }
+
+  return normalized
+}
+
+function buildNormalizedRules(): FastProxyNormalizedRule[] {
+  return ruleCards.value.flatMap((card) => {
+    if (!card.enabled) return []
+    if (card.sourceRule && card.sourceSignature === getRuleCardSignature(card)) {
+      return [card.sourceRule]
+    }
+    return card.rules.map((rule) => buildNormalizedRuleFromLeaf(rule))
+  })
+}
+
+function getGroupSetPayload(
+  targetId: string | null,
+  fallbackName: string,
+): Partial<FastProxyGroupSetResource> {
+  const existing = targetId
+    ? repository.value?.groupSets.find((item) => item.id === targetId)
+    : undefined
+  return {
+    ...(existing || {}),
+    groups: buildNormalizedGroups(),
+    name: existing?.name || fallbackName,
+  }
+}
+
+function getRuleSetPayload(
+  targetId: string | null,
+  fallbackName: string,
+): Partial<FastProxyRuleSetResource> {
+  const existing = targetId
+    ? repository.value?.routingRuleSets.find((item) => item.id === targetId)
+    : undefined
+  return {
+    ...(existing || {}),
+    name: existing?.name || fallbackName,
+    ruleCards: serializeRuleCards(),
+    rules: buildNormalizedRules(),
+  }
+}
+
+async function saveRoutingWorkspaceNow() {
+  if (savingWorkspace.value) {
+    saveQueuedWhileBusy.value = true
+    return
+  }
+
+  savingWorkspace.value = true
+  try {
+    const targets = getActivePersistenceTargets()
+    const groupPayload = getGroupSetPayload(targets.groupSetId, targets.name)
+    const rulePayload = getRuleSetPayload(targets.ruleSetId, targets.name)
+
+    const [, ruleResult] = await Promise.all([
+      targets.groupSetId
+        ? updateGroupSetAPI(targets.groupSetId, groupPayload)
+        : createGroupSetAPI(groupPayload),
+      targets.ruleSetId
+        ? updateRoutingRuleSetAPI(targets.ruleSetId, rulePayload)
+        : createRoutingRuleSetAPI(rulePayload),
+    ])
+
+    const persistedRuleSetId = targets.ruleSetId || ruleResult.data.id
+    if (persistedRuleSetId && !targets.ruleSetId) {
+      await updateFastProxyGlobalConfigFields({ routingRuleSetIds: [persistedRuleSetId] })
+    }
+    await loadFastProxyWorkspace()
+  } catch (error) {
+    showNotification({
+      content: extractErrorMessage(error, '保存路由配置失败'),
+      type: 'alert-error',
+      timeout: 5000,
+    })
+  } finally {
+    savingWorkspace.value = false
+    if (saveQueuedWhileBusy.value) {
+      saveQueuedWhileBusy.value = false
+      queueSaveRoutingWorkspace()
+    }
+  }
+}
+
+function queueSaveRoutingWorkspace() {
+  if (saveTimer.value) {
+    clearTimeout(saveTimer.value)
+  }
+  saveTimer.value = setTimeout(() => {
+    saveTimer.value = null
+    void saveRoutingWorkspaceNow()
+  }, SAVE_DEBOUNCE_MS)
+}
+
+function reconcileCollapsedIds(currentIds: string[], previousIds: string[], nextIds: string[]) {
+  const previousIdSet = new Set(previousIds)
+  if (previousIds.length === 0) {
+    return nextIds
+  }
+
+  const nextIdSet = new Set(nextIds)
+  const preservedIds = currentIds.filter((id) => nextIdSet.has(id))
+  const newIds = nextIds.filter((id) => !previousIdSet.has(id))
+  return [...preservedIds, ...newIds]
 }
 
 function syncRoutingWorkspace() {
   const sourceGroups = getActiveGroups()
   const sourceRules = getActiveRules()
+  const storedRuleCards = getActiveStoredRuleCards()
   const sourceNodes = getActiveNodes()
   const referencedOutbounds = [
     ...sourceGroups.flatMap((group) => group.outbounds || []),
@@ -1319,17 +2430,52 @@ function syncRoutingWorkspace() {
   ]
   const nextNodes = buildNodeResources(sourceNodes, referencedOutbounds, sourceGroups)
   const nextGroups = buildGroupsFromSource(sourceGroups, nextNodes)
+  const previousGroupIds = groups.value.map((group) => group.id)
+  const previousRuleCardIds = ruleCards.value.map((card) => card.id)
 
   nodeResources.value = nextNodes
   groups.value = nextGroups
-  const nextRuleCards = buildRuleCardsFromSource(sourceRules, nextGroups, nextNodes)
+  const nextRuleCards = storedRuleCards.length
+    ? buildRuleCardsFromStoredCards(storedRuleCards)
+    : buildRuleCardsFromSource(sourceRules, nextGroups, nextNodes)
   ruleCards.value = nextRuleCards
-  collapsedGroupIds.value = nextGroups.map((group) => group.id)
-  collapsedRuleCardIds.value = nextRuleCards.map((card) => card.id)
+  collapsedGroupIds.value = reconcileCollapsedIds(
+    collapsedGroupIds.value,
+    previousGroupIds,
+    nextGroups.map((group) => group.id),
+  )
+  collapsedRuleCardIds.value = reconcileCollapsedIds(
+    collapsedRuleCardIds.value,
+    previousRuleCardIds,
+    nextRuleCards.map((card) => card.id),
+  )
+}
+
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === 'object' &&
+    error &&
+    'response' in error &&
+    typeof error.response === 'object' &&
+    error.response &&
+    'data' in error.response
+  ) {
+    const data = error.response.data as { message?: string; detail?: string }
+    if (typeof data?.message === 'string' && data.message.trim()) {
+      return data.message
+    }
+    if (typeof data?.detail === 'string' && data.detail.trim()) {
+      return data.detail
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
 }
 
 watch(
-  [repository, activeProfile, selectedPresetId],
+  [repository, fastProxySelectedRoutingRuleSetIds, selectedPresetId],
   () => {
     syncRoutingWorkspace()
   },
@@ -1337,10 +2483,22 @@ watch(
 )
 
 watch(
+  [repository, activeCore],
+  () => {
+    builtInRuleSetOptions.value = []
+    ruleSetOptionQuery.value = ''
+    ruleSetOptionSourceFilter.value = 'built-in'
+  },
+  { immediate: true },
+)
+
+watch(
   routingPresets,
   (presets) => {
-    if (selectedPresetId.value && !presets.some((preset) => preset.id === selectedPresetId.value)) {
-      selectedPresetId.value = null
+    if (selectedPresetId.value) {
+      if (!presets.some((preset) => preset.id === selectedPresetId.value)) {
+        selectedPresetId.value = null
+      }
       return
     }
     if (profilePresetId.value) {
@@ -1364,6 +2522,13 @@ onMounted(async () => {
   if (!repository.value) {
     await loadFastProxyWorkspace().catch(() => null)
   }
+})
+
+onBeforeUnmount(() => {
+  if (!saveTimer.value) return
+  clearTimeout(saveTimer.value)
+  saveTimer.value = null
+  void saveRoutingWorkspaceNow()
 })
 </script>
 

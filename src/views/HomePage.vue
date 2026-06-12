@@ -11,7 +11,9 @@
               </div>
             </div>
 
-            <div class="border-base-300 divide-base-300 bg-base-200/40 grid grid-cols-2 overflow-hidden rounded-lg border lg:min-w-80">
+            <div
+              class="border-base-300 divide-base-300 bg-base-200/40 grid grid-cols-2 overflow-hidden rounded-lg border lg:min-w-80"
+            >
               <div class="p-3">
                 <div class="text-base-content/50 text-xs">{{ $t('homeSelectedCore') }}</div>
                 <div class="mt-1 text-sm font-semibold">{{ selectedCore }}</div>
@@ -222,13 +224,13 @@
 <script setup lang="ts">
 import { ROUTE_NAME } from '@/constant'
 import {
-  fastProxyActiveProfile,
   fastProxyBootstrap,
   fastProxyRepository,
   fastProxyRoutingRuleSets,
   fastProxyRuntimeStatus,
   fastProxySelectedCore,
   fastProxySelectedCoreVersionText,
+  fastProxySelectedRoutingRuleSetIds,
   loadFastProxyCoreInventory,
   loadFastProxyWorkspace,
   runFastProxyRuntimeLifecycle,
@@ -255,16 +257,33 @@ const runtimeStateLabel = computed(() => fastProxyRuntimeStatus.value?.state || 
 const runtimeSwitchChecked = computed(() =>
   ['running', 'starting'].includes(runtimeStateLabel.value),
 )
-const pendingCoreSwitch = computed(() => Boolean(runningCore.value && runningCore.value !== selectedCore.value))
+const pendingCoreSwitch = computed(() =>
+  Boolean(runningCore.value && runningCore.value !== selectedCore.value),
+)
 const pendingRestart = computed(
   () => Boolean(fastProxyRuntimeStatus.value?.pendingRestart) || pendingCoreSwitch.value,
 )
-const activeProfileName = computed(() => fastProxyActiveProfile.value?.name || 'No active profile')
-const routingRuleSets = computed(() => fastProxyRoutingRuleSets.value)
-const activeRoutingRuleSetId = computed(() => fastProxyActiveProfile.value?.ruleSetIds?.[0] || '')
+const isRoutingRuleSetSupported = (supportedCores?: FastProxyCoreId[]) => {
+  return !supportedCores?.length || supportedCores.includes(selectedCore.value)
+}
+const routingRuleSets = computed(() =>
+  fastProxyRoutingRuleSets.value.filter((ruleSet) =>
+    isRoutingRuleSetSupported(ruleSet.supportedCores),
+  ),
+)
+const activeRoutingRuleSetId = computed(() => fastProxySelectedRoutingRuleSetIds.value[0] || '')
+const activeRoutingRuleSetSupported = computed(() => {
+  if (!activeRoutingRuleSetId.value) return false
+  const activeRuleSet = fastProxyRoutingRuleSets.value.find(
+    (ruleSet) => ruleSet.id === activeRoutingRuleSetId.value,
+  )
+  return Boolean(activeRuleSet && isRoutingRuleSetSupported(activeRuleSet.supportedCores))
+})
 const defaultRoutingRuleSetId = computed(() => routingRuleSets.value[0]?.id || '')
-const selectedRoutingRuleSetId = computed(
-  () => activeRoutingRuleSetId.value || defaultRoutingRuleSetId.value,
+const selectedRoutingRuleSetId = computed(() =>
+  activeRoutingRuleSetSupported.value
+    ? activeRoutingRuleSetId.value
+    : defaultRoutingRuleSetId.value,
 )
 const selectedRoutingRuleSetName = computed(() => {
   if (!selectedRoutingRuleSetId.value) return '暂无可用路由规则集'
@@ -275,9 +294,9 @@ const selectedRoutingRuleSetName = computed(() => {
 })
 const repositorySummary = computed(() => [
   {
-    label: '当前配置',
-    value: activeProfileName.value,
-    description: selectedCore.value,
+    label: '运行配置',
+    value: selectedCore.value,
+    description: 'SQLite 全局配置',
   },
   {
     label: '数据目录',
@@ -287,22 +306,20 @@ const repositorySummary = computed(() => [
   {
     label: '路由规则',
     value: selectedRoutingRuleSetName.value,
-    description: `${routingRuleSets.value.length} 个可用规则集`,
+    description: `${routingRuleSets.value.length} 个当前内核可用规则集`,
   },
 ])
 const repositoryStats = computed(() => {
   const repository = fastProxyRepository.value
   return [
-    { label: '配置', value: repository?.profiles.length ?? 0 },
     { label: '订阅', value: repository?.subscriptions.length ?? 0 },
     { label: '节点集', value: repository?.nodeSets.length ?? 0 },
+    { label: '路由规则', value: repository?.routingRuleSets.length ?? 0 },
     { label: '规则源', value: repository?.ruleSourceRepositories.length ?? 0 },
   ]
 })
 
-const statusTitle = computed(() =>
-  isFastProxy.value ? '仓库概览' : '控制器状态',
-)
+const statusTitle = computed(() => (isFastProxy.value ? '仓库概览' : '控制器状态'))
 
 const handleCoreChange = async (event: Event) => {
   const core = (event.target as HTMLSelectElement).value as FastProxyCoreId
@@ -361,7 +378,8 @@ const runRuntimeAction = async (action: 'start' | 'stop' | 'restart' | 'restart-
       stopRuntimePanelData()
     }
   } catch (error) {
-    runtimeError.value = error instanceof Error ? error.message : runtimeActionLabel(action) + '失败'
+    runtimeError.value =
+      error instanceof Error ? error.message : runtimeActionLabel(action) + '失败'
     showNotification({ content: runtimeError.value, type: 'alert-error' })
     await loadFastProxyWorkspace().catch(() => undefined)
   } finally {
@@ -382,7 +400,7 @@ const ensureDefaultRoutingRuleSet = async () => {
   if (
     !isFastProxy.value ||
     defaultRoutingRuleSetSyncing.value ||
-    activeRoutingRuleSetId.value ||
+    activeRoutingRuleSetSupported.value ||
     !defaultRoutingRuleSetId.value
   ) {
     return
@@ -399,7 +417,7 @@ const ensureDefaultRoutingRuleSet = async () => {
 }
 
 watch(
-  [isFastProxy, activeRoutingRuleSetId, defaultRoutingRuleSetId],
+  [isFastProxy, activeRoutingRuleSetId, activeRoutingRuleSetSupported, defaultRoutingRuleSetId],
   () => {
     ensureDefaultRoutingRuleSet()
   },

@@ -3,9 +3,7 @@
     <section class="base-container w-full p-5">
       <div class="flex items-start justify-between gap-4">
         <div class="flex min-w-0 flex-1 items-center gap-3">
-          <Bars3Icon
-            class="group-drag-handle text-base-content/45 h-4 w-4 shrink-0 cursor-grab"
-          />
+          <Bars3Icon class="group-drag-handle text-base-content/45 h-4 w-4 shrink-0 cursor-grab" />
           <button
             class="flex min-w-0 flex-1 items-center gap-3 text-left"
             type="button"
@@ -172,7 +170,9 @@
           </div>
         </div>
 
-        <div class="border-base-300/60 max-h-[420px] space-y-2 overflow-y-auto rounded-2xl border p-2">
+        <div
+          class="border-base-300/60 max-h-[420px] space-y-2 overflow-y-auto rounded-2xl border p-2"
+        >
           <label
             v-for="resource in filteredResources"
             :key="getResourceSelectionKey(resource)"
@@ -209,21 +209,21 @@
         </div>
 
         <div class="flex justify-end gap-2">
-        <button
-          class="btn btn-sm"
-          type="button"
-          @click="addResourcesDialogOpen = false"
-        >
-          取消
-        </button>
-        <button
-          class="btn btn-primary btn-sm"
-          type="button"
-          :disabled="selectedResourceKeys.length === 0"
-          @click="confirmAddResources"
-        >
-          确认
-        </button>
+          <button
+            class="btn btn-sm"
+            type="button"
+            @click="addResourcesDialogOpen = false"
+          >
+            取消
+          </button>
+          <button
+            class="btn btn-primary btn-sm"
+            type="button"
+            :disabled="selectedResourceKeys.length === 0"
+            @click="confirmAddResources"
+          >
+            确认
+          </button>
         </div>
       </div>
     </DialogWrapper>
@@ -264,12 +264,7 @@ export type RoutingNodeReference = {
 
 export type RoutingItemReference = RoutingGroupReference | RoutingNodeReference
 
-export type RoutingGroupMode =
-  | 'select'
-  | 'url-test'
-  | 'fallback'
-  | 'load-balance'
-  | 'relay'
+export type RoutingGroupMode = 'select' | 'url-test' | 'fallback' | 'load-balance' | 'relay'
 
 export type RoutingGroupResource = {
   enabled?: boolean
@@ -280,6 +275,7 @@ export type RoutingGroupResource = {
   lazy?: boolean
   matchPattern?: string
   name: string
+  raw?: Record<string, unknown>
   regexEnabled?: boolean
   strategy?: 'round-robin' | 'consistent-hashing' | 'sticky-sessions'
   testUrl?: string
@@ -325,7 +321,9 @@ const matchedNodes = computed(() => {
   } catch {
     const keyword = pattern.toLowerCase()
     return props.availableNodes.filter((node) => {
-      return node.name.toLowerCase().includes(keyword) || node.address.toLowerCase().includes(keyword)
+      return (
+        node.name.toLowerCase().includes(keyword) || node.address.toLowerCase().includes(keyword)
+      )
     })
   }
 })
@@ -335,10 +333,7 @@ const displayedItemsCount = computed(() => {
 })
 
 const existingResourceKeys = computed(() => {
-  return new Set(
-    props.group.items
-      .map((item) => `${item.type}:${item.id}`),
-  )
+  return new Set(props.group.items.map((item) => `${item.type}:${item.id}`))
 })
 
 const filteredResources = computed(() => {
@@ -348,9 +343,8 @@ const filteredResources = computed(() => {
   }
 
   return props.availableResources.filter((resource) => {
-    const searchFields = resource.type === 'group'
-      ? [resource.name]
-      : [resource.name, resource.address]
+    const searchFields =
+      resource.type === 'group' ? [resource.name] : [resource.name, resource.address]
 
     return searchFields.some((field) => field.toLowerCase().includes(keyword))
   })
@@ -362,7 +356,10 @@ const selectableResources = computed(() => {
 
 const updateItems = (items: RoutingItemReference[]) => {
   const uniqueItems = items.filter((item, index, list) => {
-    return list.findIndex((candidate) => candidate.id === item.id && candidate.type === item.type) === index
+    return (
+      list.findIndex((candidate) => candidate.id === item.id && candidate.type === item.type) ===
+      index
+    )
   })
 
   emit('update-group-items', props.group.id, uniqueItems)
@@ -387,7 +384,9 @@ function openAddNodesDialog() {
 }
 
 function selectAllResources() {
-  selectedResourceKeys.value = selectableResources.value.map((resource) => getResourceSelectionKey(resource))
+  selectedResourceKeys.value = selectableResources.value.map((resource) =>
+    getResourceSelectionKey(resource),
+  )
 }
 
 function clearSelectedResources() {

@@ -372,7 +372,7 @@ const ruleSetMap = computed(() => {
   return new Map((fastProxyRepository.value?.routingRuleSets || []).map((item) => [item.id, item]))
 })
 const lastUpdated = computed(() => {
-  const latest = subscriptions.value[0]?.updatedAt || fastProxyRepository.value?.state.updatedAt
+  const latest = subscriptions.value[0]?.updatedAt || fastProxyRepository.value?.config.updatedAt
   return latest ? fromNow(latest) : '-'
 })
 

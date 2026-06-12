@@ -247,7 +247,6 @@ const zh: LANG_MESSAGE = {
   homeHeroDescription:
     'FastProxy 现在从一个独立首页进入，而不是直接跳到代理细节页。这里更适合作为后端状态、仓库数据和配置流转的统一入口。',
   homeSelectedCore: '当前内核',
-  homeActiveProfile: '当前配置',
   homeBackendAddress: '后端地址',
   homeBackendAddressHint: '开发环境走 Vite 代理，生产环境直接连接后端。',
   homeQuickProxyTitle: '打开代理工作区',
@@ -264,7 +263,6 @@ const zh: LANG_MESSAGE = {
     '这里先把“配置订阅”菜单和页面骨架接好。后续可以在这个页面继续补创建、编辑、同步和绑定配置的完整流程。',
   configSubscriptionsTotal: '订阅数量',
   configSubscriptionsLoadedProfiles: '已加载 {count} 个配置',
-  configSubscriptionsActiveProfile: '当前配置',
   configSubscriptionsAttachedCount: '已关联 {count} 个配置',
   configSubscriptionsPlaceholderTitle: '占位页面',
   configSubscriptionsPlaceholderDescription:

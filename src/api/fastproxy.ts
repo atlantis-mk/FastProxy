@@ -6,27 +6,26 @@ import type {
   FastProxyCoreId,
   FastProxyCoreInventory,
   FastProxyCoreUpdateInfo,
-  FastProxyGroupSetResource,
   FastProxyGitHubTokenSetting,
   FastProxyGlobalConfig,
+  FastProxyGroupSetResource,
   FastProxyHealthCheckSample,
   FastProxyImportResult,
-  FastProxyMihomoRuleProviderResource,
   FastProxyManagedInbound,
-  FastProxyNormalizedNode,
+  FastProxyMihomoRuleProviderResource,
   FastProxyNodeCachePage,
   FastProxyNodeSetFile,
   FastProxyNodeSetResource,
+  FastProxyNormalizedNode,
   FastProxyOperationEventPage,
   FastProxyProfileResource,
   FastProxyRepositoryBootstrap,
-  FastProxyRepositoryState,
-  FastProxyRuntimeStatus,
   FastProxyRuleSetResource,
   FastProxyRuleSourceIndex,
   FastProxyRuleSourceRepository,
   FastProxyRuleSourceSelectableFiles,
   FastProxyRuleSourceTree,
+  FastProxyRuntimeStatus,
   FastProxySingBoxRuleSetResource,
   FastProxySubscriptionResource,
 } from '@/types/fastproxy'
@@ -161,7 +160,7 @@ export const fetchRuntimeStatusAPI = () => {
 }
 
 export const selectRuntimeCoreAPI = (core: FastProxyCoreId) => {
-  return fastProxyRequest<FastProxyProfileResource>({
+  return fastProxyRequest<FastProxyGlobalConfig>({
     method: 'PUT',
     url: fastProxyPath('/runtime/core'),
     data: { core },
@@ -204,14 +203,6 @@ export const deleteProfileAPI = (id: string) => {
   return fastProxyRequest<void>({
     method: 'DELETE',
     url: fastProxyPath(`/profiles/${encodeURIComponent(id)}`),
-  })
-}
-
-export const activateProfileAPI = (profileId: string) => {
-  return fastProxyRequest<FastProxyRepositoryState>({
-    method: 'PUT',
-    url: fastProxyPath('/repository/profiles/active'),
-    data: { profileId },
   })
 }
 
@@ -535,10 +526,40 @@ export const updateRoutingRuleSetAPI = (id: string, payload: Partial<FastProxyRu
   })
 }
 
+export const deleteRoutingRuleSetAPI = (id: string) => {
+  return fastProxyRequest<void>({
+    method: 'DELETE',
+    url: fastProxyPath(`/repository/routing-rule-sets/${encodeURIComponent(id)}`),
+  })
+}
+
 export const fetchGroupSetsAPI = () => {
   return fastProxyRequest<FastProxyGroupSetResource[]>({
     method: 'GET',
     url: fastProxyPath('/repository/group-sets'),
+  })
+}
+
+export const createGroupSetAPI = (payload: Partial<FastProxyGroupSetResource>) => {
+  return fastProxyRequest<FastProxyGroupSetResource>({
+    method: 'POST',
+    url: fastProxyPath('/repository/group-sets'),
+    data: payload,
+  })
+}
+
+export const updateGroupSetAPI = (id: string, payload: Partial<FastProxyGroupSetResource>) => {
+  return fastProxyRequest<FastProxyGroupSetResource>({
+    method: 'PUT',
+    url: fastProxyPath(`/repository/group-sets/${encodeURIComponent(id)}`),
+    data: payload,
+  })
+}
+
+export const deleteGroupSetAPI = (id: string) => {
+  return fastProxyRequest<void>({
+    method: 'DELETE',
+    url: fastProxyPath(`/repository/group-sets/${encodeURIComponent(id)}`),
   })
 }
 
@@ -601,10 +622,7 @@ export const importPlainNodesAPI = (payload: { name?: string; content: string })
   })
 }
 
-export const createManualNodeAPI = (payload: {
-  name?: string
-  node: FastProxyNormalizedNode
-}) => {
+export const createManualNodeAPI = (payload: { name?: string; node: FastProxyNormalizedNode }) => {
   return fastProxyRequest<FastProxyImportResult>({
     method: 'POST',
     url: fastProxyPath('/repository/imports/manual-node'),

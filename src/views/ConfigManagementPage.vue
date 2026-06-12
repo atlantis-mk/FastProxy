@@ -4666,10 +4666,72 @@ const createManualNodeId = (type: string, server: string, port: number, tag: str
   }
   return `manual_${hash.toString(16)}`
 }
+const shareTransportFromParams = (
+  params: URLSearchParams,
+): FastProxyNormalizedNode['transport'] => {
+  const network = params.get('type') || params.get('net') || 'tcp'
+  const path = params.get('path') || ''
+  const host = params.get('host') || ''
+  if (network === 'ws') {
+    return {
+      type: 'ws',
+      path,
+      headers: host ? { Host: host } : undefined,
+    }
+  }
+  if (network === 'grpc') {
+    return {
+      type: 'grpc',
+      service_name: params.get('serviceName') || params.get('service_name') || path,
+    }
+  }
+  if (network === 'http' || network === 'h2') {
+    return {
+      type: 'http',
+      path,
+      host: host ? [host] : undefined,
+    }
+  }
+  if (network === 'quic') {
+    return { type: 'quic' }
+  }
+  return undefined
+}
+const mihomoTransportOptionsFromParams = (params: URLSearchParams): Record<string, unknown> => {
+  const network = params.get('type') || params.get('net') || 'tcp'
+  const path = params.get('path') || ''
+  const host = params.get('host') || ''
+  if (network === 'ws') {
+    return {
+      'ws-opts': {
+        path,
+        headers: host ? { Host: host } : undefined,
+      },
+    }
+  }
+  if (network === 'grpc') {
+    return {
+      'grpc-opts': {
+        'grpc-service-name': params.get('serviceName') || params.get('service_name') || path,
+      },
+    }
+  }
+  if (network === 'http' || network === 'h2') {
+    return {
+      'h2-opts': {
+        path,
+        host: host ? [host] : undefined,
+      },
+    }
+  }
+  return {}
+}
 const parseTrojanShareUri = (url: URL): FastProxyNormalizedNode => {
   const tag = tagFromUrl(url, url.hostname)
   const network = url.searchParams.get('type') || 'tcp'
   const sni = url.searchParams.get('sni') || ''
+  const fingerprint = url.searchParams.get('fp') || ''
+  const insecure = url.searchParams.get('allowInsecure') === '1'
   const port = parsePort(url.port)
   return {
     id: createManualNodeId('trojan', url.hostname, port, tag),
@@ -4680,10 +4742,15 @@ const parseTrojanShareUri = (url: URL): FastProxyNormalizedNode => {
     password: decodeURIComponent(url.username),
     source: manualNodeSetName,
     network,
+    transport: shareTransportFromParams(url.searchParams),
     tls: {
       enabled: true,
-      insecure: url.searchParams.get('allowInsecure') === '1',
+      insecure,
       server_name: sni,
+      utls: {
+        enabled: Boolean(fingerprint),
+        fingerprint: fingerprint || undefined,
+      },
     },
     raw: {
       name: tag,
@@ -4691,8 +4758,13 @@ const parseTrojanShareUri = (url: URL): FastProxyNormalizedNode => {
       server: url.hostname,
       port,
       password: decodeURIComponent(url.username),
+      tls: true,
       sni,
+      servername: sni,
+      'client-fingerprint': fingerprint,
+      'skip-cert-verify': insecure,
       network,
+      ...mihomoTransportOptionsFromParams(url.searchParams),
     },
   }
 }
@@ -4701,6 +4773,7 @@ const parseVlessShareUri = (url: URL): FastProxyNormalizedNode => {
   const security = url.searchParams.get('security') || ''
   const sni = url.searchParams.get('sni') || ''
   const flow = url.searchParams.get('flow') || ''
+  const encryption = url.searchParams.get('encryption') || 'none'
   const network = url.searchParams.get('type') || 'tcp'
   const publicKey = url.searchParams.get('pbk') || ''
   const shortId = url.searchParams.get('sid') || ''
@@ -4715,6 +4788,7 @@ const parseVlessShareUri = (url: URL): FastProxyNormalizedNode => {
     source: manualNodeSetName,
     flow,
     network,
+    transport: shareTransportFromParams(url.searchParams),
     tls: {
       enabled: security === 'tls' || security === 'reality',
       server_name: sni,
@@ -4739,13 +4813,18 @@ const parseVlessShareUri = (url: URL): FastProxyNormalizedNode => {
       uuid: decodeURIComponent(url.username),
       flow,
       network,
-      security,
-      sni,
-      fp: url.searchParams.get('fp') || '',
-      pbk: publicKey,
-      sid: shortId,
-      spx: url.searchParams.get('spx') || '',
-      encryption: url.searchParams.get('encryption') || 'none',
+      tls: security === 'tls' || security === 'reality',
+      servername: sni,
+      'client-fingerprint': url.searchParams.get('fp') || '',
+      'reality-opts':
+        security === 'reality'
+          ? {
+              'public-key': publicKey,
+              'short-id': shortId,
+            }
+          : undefined,
+      encryption,
+      ...mihomoTransportOptionsFromParams(url.searchParams),
     },
   }
 }
@@ -4780,6 +4859,10 @@ const parseVmessShareUri = (link: string): FastProxyNormalizedNode => {
   const tag = String(payload.ps || payload.name || payload.add || 'vmess')
   const server = String(payload.add || '')
   const port = Number(payload.port) || 0
+  const transportParams = new URLSearchParams()
+  transportParams.set('type', String(payload.net || 'tcp'))
+  transportParams.set('path', String(payload.path || ''))
+  transportParams.set('host', String(payload.host || ''))
   return {
     id: createManualNodeId('vmess', server, port, tag),
     tag,
@@ -4787,14 +4870,36 @@ const parseVmessShareUri = (link: string): FastProxyNormalizedNode => {
     server,
     server_port: port,
     uuid: String(payload.id || ''),
+    security: String(payload.scy || payload.security || 'auto'),
     alter_id: Number(payload.aid) || 0,
     source: manualNodeSetName,
     network: String(payload.net || 'tcp'),
+    transport: shareTransportFromParams(transportParams),
     tls: {
       enabled: payload.tls === 'tls',
       server_name: String(payload.sni || ''),
     },
-    raw: payload,
+    raw: {
+      name: tag,
+      type: 'vmess',
+      server,
+      port,
+      uuid: String(payload.id || ''),
+      alterId: Number(payload.aid) || 0,
+      cipher: String(payload.scy || payload.security || 'auto'),
+      network: String(payload.net || 'tcp'),
+      tls: payload.tls === 'tls',
+      servername: String(payload.sni || payload.host || ''),
+      'skip-cert-verify': Boolean(payload.allowInsecure),
+      'ws-opts':
+        payload.net === 'ws'
+          ? {
+              path: String(payload.path || ''),
+              headers: payload.host ? { Host: String(payload.host) } : undefined,
+            }
+          : undefined,
+      ...mihomoTransportOptionsFromParams(transportParams),
+    },
   }
 }
 const parseShareUriToNode = (link: string): FastProxyNormalizedNode => {
@@ -5672,6 +5777,13 @@ watch(builtInRuleSearch, (value) => {
 
 const tabs = computed(() => [
   {
+    key: 'network' as const,
+    label: '网络',
+    count: baseFormSections
+      .filter((section) => section.tab === 'network')
+      .reduce((sum, section) => sum + section.fields.length, 0),
+  },
+  {
     key: 'dns' as const,
     label: 'DNS',
     count:
@@ -5680,13 +5792,6 @@ const tabs = computed(() => [
         .reduce((sum, section) => sum + section.fields.length, 0) +
       dnsServers.value.length +
       dnsRules.value.length,
-  },
-  {
-    key: 'network' as const,
-    label: '网络',
-    count: baseFormSections
-      .filter((section) => section.tab === 'network')
-      .reduce((sum, section) => sum + section.fields.length, 0),
   },
   {
     key: 'inbounds' as const,
@@ -6722,10 +6827,21 @@ const loadOperationEvents = async () => {
 const refreshPage = async () => {
   try {
     await loadFastProxyWorkspace()
-    await loadGlobalConfigFromBackend()
-    await loadOperationEvents()
-    await loadBuiltInRuleIndexPath('')
   } catch {
+    showNotification({
+      content: 'configManagementRefreshFailed',
+      type: 'alert-error',
+    })
+    return
+  }
+
+  const results = await Promise.allSettled([
+    loadGlobalConfigFromBackend(),
+    loadOperationEvents(),
+    loadBuiltInRuleIndexPath(''),
+  ])
+
+  if (results.some((result) => result.status === 'rejected')) {
     showNotification({
       content: 'configManagementRefreshFailed',
       type: 'alert-error',

@@ -255,7 +255,6 @@ const ru: LANG_MESSAGE = {
   homeHeroDescription:
     'FastProxy теперь открывается с отдельной главной страницы, а не сразу с экрана прокси. Это удобнее как единая точка входа для состояния бэкенда, данных репозитория и жизненного цикла конфигов.',
   homeSelectedCore: 'Текущее ядро',
-  homeActiveProfile: 'Текущий профиль',
   homeBackendAddress: 'Адрес бэкенда',
   homeBackendAddressHint:
     'В разработке используется Vite proxy, в продакшене прямое подключение к бэкенду.',
@@ -273,7 +272,6 @@ const ru: LANG_MESSAGE = {
     'Эта страница добавляет новый пункт меню и каркас для управления подписками конфигураций. Полные сценарии редактирования можно будет дописать здесь позже.',
   configSubscriptionsTotal: 'Подписок',
   configSubscriptionsLoadedProfiles: 'Загружено профилей: {count}',
-  configSubscriptionsActiveProfile: 'Активный профиль',
   configSubscriptionsAttachedCount: 'Привязано к {count} профилю(ям)',
   configSubscriptionsPlaceholderTitle: 'Страница-заглушка',
   configSubscriptionsPlaceholderDescription:
@@ -319,15 +317,13 @@ const ru: LANG_MESSAGE = {
   homeAnnouncementDescription:
     'Переключайте ядра, выбирайте JSON-конфиги и переходите в нужные разделы из одной компактной панели.',
   homeCorePanelTitle: 'Состояние ядра',
-  homeCorePanelDescription:
-    'Проверьте целевое ядро, выбранное активным профилем.',
+  homeCorePanelDescription: 'Проверьте целевое ядро, выбранное активным профилем.',
   homeCoreVersionLabel: 'Текущее ядро',
   homeRestartCore: 'Перезапуск',
   homeOverwriteModule: 'Модуль конфигов',
   homeQuickActionsTitle: 'Быстрые действия',
   homeConfigPanelTitle: 'Файлы конфигурации',
-  homeConfigPanelDescription:
-    'Выберите JSON-профиль, активируйте его или создайте новый на лету.',
+  homeConfigPanelDescription: 'Выберите JSON-профиль, активируйте его или создайте новый на лету.',
   homeNoConfigTimestamp: 'Пока нет времени обновления',
   homeSwitchConfig: 'Применить',
   homeNoProfiles: 'Пока нет файлов конфигурации. Создайте первый, чтобы начать.',

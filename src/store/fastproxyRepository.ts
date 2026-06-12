@@ -1,18 +1,18 @@
 import {
-  activateProfileAPI,
-  createProfileAPI,
   fetchCoreInventoryAPI,
   fetchFastProxyBootstrapAPI,
   fetchRepositoryBootstrapAPI,
   fetchRuntimeStatusAPI,
   runRuntimeLifecycleAPI,
   selectRuntimeCoreAPI,
-  updateProfileAPI,
+  updateGlobalConfigAPI,
 } from '@/api/fastproxy'
 import type {
   FastProxyBootstrapPayload,
   FastProxyCoreId,
   FastProxyCoreInventoryItem,
+  FastProxyGlobalConfig,
+  FastProxyGlobalConfigFieldValue,
   FastProxyRepositoryBootstrap,
   FastProxyRuntimeStatus,
 } from '@/types/fastproxy'
@@ -29,21 +29,17 @@ export const fastProxyProfiles = computed(() => fastProxyRepository.value?.profi
 export const fastProxyRoutingRuleSets = computed(
   () => fastProxyRepository.value?.routingRuleSets || [],
 )
-export const fastProxyActiveProfile = computed(() => {
-  const repository = fastProxyRepository.value
-  if (!repository?.state.activeProfileId) {
-    return null
-  }
-  return (
-    repository.profiles.find((profile) => profile.id === repository.state.activeProfileId) || null
-  )
-})
+export const fastProxyGlobalConfig = computed(() => fastProxyRepository.value?.config || null)
+export const fastProxyGlobalConfigFields = computed(() => fastProxyGlobalConfig.value?.fields || {})
 export const fastProxySelectedCore = computed(
   () =>
-    fastProxyActiveProfile.value?.selectedCore ||
+    (fastProxyGlobalConfigFields.value.selectedCore as FastProxyCoreId | undefined) ||
     fastProxyRuntimeStatus.value?.selectedCore ||
     fastProxyRuntimeStatus.value?.core ||
     'mihomo',
+)
+export const fastProxySelectedRoutingRuleSetIds = computed(() =>
+  stringValues(fastProxyGlobalConfigFields.value.routingRuleSetIds),
 )
 export const fastProxySelectedCoreInventory = computed(
   () =>
@@ -84,71 +80,44 @@ export const loadFastProxyCoreInventory = async () => {
 export const selectFastProxyRoutingRuleSet = async (ruleSetId: string) => {
   fastProxyRuntimeBusy.value = true
   try {
-    const activeProfile = await ensureFastProxyActiveProfile()
-    const linkedResourceIds = inferLinkedRoutingResources(ruleSetId)
-    const { data } = await updateProfileAPI(activeProfile.id, {
-      ...activeProfile,
-      ruleSetIds: ruleSetId ? [ruleSetId] : [],
-      nodeSetIds: mergeIds(activeProfile.nodeSetIds, linkedResourceIds.nodeSetIds),
-      groupSetIds: linkedResourceIds.groupSetIds,
+    const data = await updateFastProxyGlobalConfigFields({
+      routingRuleSetIds: ruleSetId ? [ruleSetId] : [],
     })
-    if (fastProxyRepository.value) {
-      fastProxyRepository.value = {
-        ...fastProxyRepository.value,
-        profiles: fastProxyRepository.value.profiles.map((profile) =>
-          profile.id === data.id ? data : profile,
-        ),
-      }
-    }
     return data
   } finally {
     fastProxyRuntimeBusy.value = false
   }
 }
 
-const inferLinkedRoutingResources = (ruleSetId: string) => {
-  if (!ruleSetId || !fastProxyRepository.value) {
-    return { nodeSetIds: [], groupSetIds: [] }
-  }
-
-  const selectedRuleSet = fastProxyRepository.value.routingRuleSets.find(
-    (ruleSet) => ruleSet.id === ruleSetId,
-  )
-  const relatedNames = new Set([ruleSetId, selectedRuleSet?.name].filter(Boolean))
-  return {
-    nodeSetIds: fastProxyRepository.value.nodeSets.map((nodeSet) => nodeSet.id),
-    groupSetIds: fastProxyRepository.value.groupSets
-      .filter((groupSet) => relatedNames.has(groupSet.id) || relatedNames.has(groupSet.name))
-      .map((groupSet) => groupSet.id),
-  }
-}
-
-const mergeIds = (current: string[] = [], next: string[]) => {
-  return Array.from(new Set([...current, ...next]))
-}
-
-const ensureFastProxyActiveProfile = async () => {
-  const activeProfile = fastProxyActiveProfile.value
-  if (activeProfile) {
-    return activeProfile
-  }
-
-  const selectedCore = fastProxyRuntimeStatus.value?.selectedCore || fastProxyRuntimeStatus.value?.core || 'mihomo'
-  const { data } = await createProfileAPI({
-    name: 'Default profile',
-    selectedCore,
+export const updateFastProxyGlobalConfigFields = async (
+  fields: Record<string, FastProxyGlobalConfigFieldValue>,
+) => {
+  const currentConfig =
+    fastProxyRepository.value?.config || ({ fields: {} } as FastProxyGlobalConfig)
+  const { data } = await updateGlobalConfigAPI({
+    ...currentConfig,
+    fields: {
+      ...(currentConfig.fields || {}),
+      ...fields,
+    },
   })
   if (fastProxyRepository.value) {
     fastProxyRepository.value = {
       ...fastProxyRepository.value,
-      state: {
-        ...fastProxyRepository.value.state,
-        activeProfileId: data.id,
-      },
-      profiles: [...fastProxyRepository.value.profiles, data],
+      config: data,
     }
   }
   return data
+}
+
+const stringValues = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string')
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return [value.trim()]
+  }
+  return []
 }
 
 export const refreshFastProxyRuntimeStatus = async () => {
@@ -164,9 +133,7 @@ export const selectFastProxyRuntimeCore = async (core: FastProxyCoreId) => {
     if (fastProxyRepository.value) {
       fastProxyRepository.value = {
         ...fastProxyRepository.value,
-        profiles: fastProxyRepository.value.profiles.map((profile) =>
-          profile.id === data.id ? data : profile,
-        ),
+        config: data,
       }
     }
     await refreshFastProxyRuntimeStatus()
@@ -186,21 +153,5 @@ export const runFastProxyRuntimeLifecycle = async (
     return data
   } finally {
     fastProxyRuntimeBusy.value = false
-  }
-}
-
-export const activateFastProxyProfile = async (profileId: string) => {
-  fastProxyBusy.value = true
-  try {
-    const { data } = await activateProfileAPI(profileId)
-    if (fastProxyRepository.value) {
-      fastProxyRepository.value = {
-        ...fastProxyRepository.value,
-        state: data,
-      }
-    }
-    return data
-  } finally {
-    fastProxyBusy.value = false
   }
 }

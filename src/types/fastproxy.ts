@@ -273,7 +273,32 @@ export type FastProxyHealthCheckSample = {
 }
 
 export type FastProxyRuleSetResource = FastProxyMetadata & {
+  ruleCards?: FastProxyRoutingRuleCard[]
   rules?: FastProxyNormalizedRule[]
+  supportedCores?: FastProxyCoreId[]
+}
+
+export type FastProxyRoutingRuleTarget = {
+  id: string
+  name: string
+  type: 'group' | 'node' | string
+}
+
+export type FastProxyRoutingRuleLeaf = {
+  condition: string
+  id: string
+  target: string
+  value: string | string[]
+}
+
+export type FastProxyRoutingRuleCard = {
+  enabled: boolean
+  id: string
+  name: string
+  outboundTarget?: FastProxyRoutingRuleTarget | null
+  rules?: FastProxyRoutingRuleLeaf[]
+  sourceRule?: FastProxyNormalizedRule
+  sourceSignature?: string
 }
 
 export type FastProxyRuleSourceCoreMapping = {
@@ -420,16 +445,19 @@ export type FastProxyGlobalDNSRule = {
   clientSubnet?: string
 }
 
+export type FastProxyGlobalConfigFieldValue =
+  | string
+  | boolean
+  | number
+  | null
+  | string[]
+  | Record<string, unknown>
+
 export type FastProxyGlobalConfig = {
-  fields?: Record<string, string | boolean | number | null>
+  fields?: Record<string, FastProxyGlobalConfigFieldValue>
   dnsServers?: FastProxyGlobalDNSServer[]
   dnsRules?: FastProxyGlobalDNSRule[]
   inbounds?: FastProxyManagedInbound[]
-  updatedAt?: string
-}
-
-export type FastProxyRepositoryState = {
-  activeProfileId?: string
   updatedAt?: string
 }
 
@@ -443,7 +471,6 @@ export type FastProxyRuntimeStatus = {
 }
 
 export type FastProxyRepositoryBootstrap = {
-  state: FastProxyRepositoryState
   profiles: FastProxyProfileResource[]
   subscriptions: FastProxySubscriptionResource[]
   nodeSets: FastProxyNodeSetResource[]
@@ -458,7 +485,6 @@ export type FastProxyRepositoryBootstrap = {
 
 export type FastProxyBootstrapPayload = {
   dataDir: string
-  profileState: FastProxyRepositoryState
 }
 
 export type FastProxyCoreInventory = {

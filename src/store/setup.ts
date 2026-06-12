@@ -7,11 +7,19 @@ import { sourceIPLabelList } from './settings'
 
 export const backendList = useStorage<Backend[]>('setup/api-list', [])
 export const activeUuid = useStorage<string>('setup/active-uuid', '')
+const currentLocationBackend = () => {
+  const protocol = window.location.protocol.replace(/:$/, '') || 'http'
+  const host = window.location.hostname || '127.0.0.1'
+  const port = window.location.port || (protocol === 'https' ? '443' : '80')
+
+  return { protocol, host, port }
+}
+const currentLocation = currentLocationBackend()
 export const localFastProxyBackend: Backend = {
   uuid: '__local_fastproxy__',
-  protocol: 'http',
-  host: '127.0.0.1',
-  port: '43171',
+  protocol: currentLocation.protocol,
+  host: currentLocation.host,
+  port: currentLocation.port,
   secondaryPath: '',
   password: '',
   label: 'Local FastProxy',

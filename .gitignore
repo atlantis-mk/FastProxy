@@ -8,8 +8,11 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
+/build/
 dist
 dist-ssr
+!FastProxy-Server/internal/webui/dist/
+!FastProxy-Server/internal/webui/dist/.gitkeep
 coverage
 *.local
 .claude

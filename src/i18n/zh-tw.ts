@@ -247,7 +247,6 @@ const zhTW: LANG_MESSAGE = {
   homeHeroDescription:
     'FastProxy 現在從一個獨立首頁進入，而不是直接跳到代理細節頁。這裡更適合作為後端狀態、倉庫資料和配置流轉的統一入口。',
   homeSelectedCore: '當前核心',
-  homeActiveProfile: '當前配置',
   homeBackendAddress: '後端地址',
   homeBackendAddressHint: '開發環境走 Vite 代理，生產環境直接連接後端。',
   homeQuickProxyTitle: '打開代理工作區',
@@ -264,7 +263,6 @@ const zhTW: LANG_MESSAGE = {
     '這裡先把「配置訂閱」選單和頁面骨架接好，後續可以繼續在這個頁面補上建立、編輯、同步和綁定配置的完整流程。',
   configSubscriptionsTotal: '訂閱數量',
   configSubscriptionsLoadedProfiles: '已載入 {count} 個配置',
-  configSubscriptionsActiveProfile: '目前配置',
   configSubscriptionsAttachedCount: '已關聯 {count} 個配置',
   configSubscriptionsPlaceholderTitle: '占位頁面',
   configSubscriptionsPlaceholderDescription:
