@@ -283,7 +283,11 @@ watch(documentVisible, () => {
 
 watch(
   () => [activeBackendFlavor.value, fastProxyRuntimeStatus.value?.state],
-  ensureCurrentRouteAvailable,
+  ([flavor, state]) => {
+    // Avoid redirecting runtime routes during the initial fastproxy bootstrap window.
+    if (flavor === 'fastproxy' && !state) return
+    ensureCurrentRouteAvailable()
+  },
 )
 
 const { checkUIUpdate } = useSettings()
