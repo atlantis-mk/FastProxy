@@ -997,11 +997,11 @@
             class="base-container space-y-4 p-4"
           >
             <div class="overflow-x-auto">
-              <table class="table-pin-rows table-zebra table min-w-[1240px]">
+              <table class="table-pin-rows table-zebra table min-w-[1120px]">
                 <thead>
                   <tr class="bg-base-100/95">
                     <th>#</th>
-                    <th>名称</th>
+                    <th>生成名称</th>
                     <th>角色</th>
                     <th>协议</th>
                     <th>地址</th>
@@ -1020,17 +1020,9 @@
                   >
                     <td>{{ index + 1 }}</td>
                     <td>
-                      <input
-                        class="input input-bordered input-sm w-36"
-                        :value="server.name"
-                        @input="
-                          setDnsServerField(
-                            index,
-                            'name',
-                            ($event.target as HTMLInputElement).value,
-                          )
-                        "
-                      />
+                      <span class="badge badge-ghost font-mono">
+                        {{ dnsServerGeneratedName(index) }}
+                      </span>
                     </td>
                     <td>
                       <select
@@ -1245,11 +1237,11 @@
                       >
                         <option value="">默认解析</option>
                         <option
-                          v-for="server in dnsServers"
+                          v-for="(server, serverIndex) in dnsServers"
                           :key="server.id"
-                          :value="server.name"
+                          :value="dnsServerGeneratedName(serverIndex)"
                         >
-                          {{ server.name || server.id }}
+                          {{ dnsServerGeneratedName(serverIndex) }}
                         </option>
                       </select>
                     </td>
@@ -1591,7 +1583,7 @@
           <textarea
             v-model.trim="manualNodeLink"
             class="textarea textarea-bordered textarea-sm min-h-32 w-full font-mono text-sm"
-            placeholder="vless://... 或 trojan://..."
+            placeholder="vless://...、trojan://... 或 hysteria2://..."
           />
         </label>
         <div
@@ -1651,6 +1643,7 @@
               <option value="trojan">trojan</option>
               <option value="shadowsocks">shadowsocks</option>
               <option value="vmess">vmess</option>
+              <option value="hysteria2">hysteria2</option>
             </select>
           </label>
           <label class="form-control gap-2">
@@ -1710,6 +1703,28 @@
               class="input input-bordered input-sm w-full"
               :value="editNodeDraft.flow || ''"
               @input="setEditNodeTextField('flow', ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <label class="form-control gap-2">
+            <span class="label-text text-sm font-medium">up_mbps</span>
+            <input
+              class="input input-bordered input-sm w-full"
+              type="number"
+              min="0"
+              :value="String(editNodeDraft.up_mbps || '')"
+              @input="setEditNodeNumberField('up_mbps', ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <label class="form-control gap-2">
+            <span class="label-text text-sm font-medium">down_mbps</span>
+            <input
+              class="input input-bordered input-sm w-full"
+              type="number"
+              min="0"
+              :value="String(editNodeDraft.down_mbps || '')"
+              @input="
+                setEditNodeNumberField('down_mbps', ($event.target as HTMLInputElement).value)
+              "
             />
           </label>
           <label class="form-control gap-2">
@@ -3691,7 +3706,7 @@ const baseFormSections: BaseFormSection[] = [
         key: 'findProcessMode',
         label: 'find-process-mode',
         type: 'select',
-        defaultValue: 'strict',
+        defaultValue: 'always',
         options: [
           { label: 'always', value: 'always' },
           { label: 'strict', value: 'strict' },
@@ -3840,7 +3855,7 @@ const baseFormSections: BaseFormSection[] = [
         type: 'select',
         defaultValue: 'fake-ip',
         options: dnsModeOptions.map((value) => ({ label: value, value })),
-        hint: 'mihomo 映射为 enhanced-mode；sing-box fake-ip 通过专用 DNS server 与规则表达。',
+        hint: 'mihomo 映射为 enhanced-mode，其中 real-ip 会输出为 redir-host；sing-box fake-ip 通过专用 DNS server 与规则表达。',
       },
       {
         key: 'dnsIpv6',
@@ -4648,7 +4663,7 @@ const dnsRuleFromGlobal = (rule: FastProxyGlobalDNSRule, index: number): DnsRule
 
 const dnsServerToGlobal = (server: DnsServerRow): FastProxyGlobalDNSServer => ({
   id: server.id,
-  name: server.name,
+  name: '',
   role: server.role,
   protocol: server.protocol,
   address: server.address,
@@ -4728,6 +4743,19 @@ const nodeNumberValue = (node: Record<string, unknown>, key: string) => {
   const value = nodeValue(node, key)
   return typeof value === 'number' ? value : Number(value) || 0
 }
+const nodeStringListValue = (node: Record<string, unknown>, key: string) => {
+  const value = nodeValue(node, key)
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
 const appendQueryParam = (params: URLSearchParams, key: string, value: unknown) => {
   if (value === undefined || value === null || value === '') return
   params.set(key, String(value))
@@ -4749,6 +4777,36 @@ const base64UrlDecode = (value: string) => {
 }
 const tagFromUrl = (url: URL, fallback: string) => decodeURIComponent(url.hash.slice(1)) || fallback
 const parsePort = (port: string) => Number(port) || 0
+const splitQueryList = (value: string | null) =>
+  (value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+const queryBoolean = (params: URLSearchParams, key: string) =>
+  ['1', 'true', 'yes'].includes((params.get(key) || '').trim().toLowerCase())
+const queryNumber = (params: URLSearchParams, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = Number(params.get(key))
+    if (Number.isFinite(value) && value > 0) return value
+  }
+  return 0
+}
+const hysteria2FmUdpHopValue = (fm: unknown, key: string) => {
+  const udpHop = asRecord(asRecord(asRecord(fm).quicParams).udpHop)
+  const value = udpHop[key]
+  if (typeof value === 'string') return value.trim()
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+const singBoxHysteria2HopDuration = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return Number.isFinite(Number(trimmed)) ? `${trimmed}s` : trimmed
+}
+const singBoxHysteria2HopInterval = (value: string) => {
+  const parts = value.split('-', 2)
+  return singBoxHysteria2HopDuration(parts[0])
+}
 const createManualNodeId = (type: string, server: string, port: number, tag: string) => {
   const source = `${type}-${server}-${port}-${tag}`
   let hash = 0
@@ -4993,6 +5051,81 @@ const parseVmessShareUri = (link: string): FastProxyNormalizedNode => {
     },
   }
 }
+const parseHysteria2ShareUri = (url: URL): FastProxyNormalizedNode => {
+  const tag = tagFromUrl(url, url.hostname)
+  const port = parsePort(url.port) || 443
+  const password = decodeURIComponent(url.username || url.searchParams.get('password') || '')
+  const obfsPassword =
+    url.searchParams.get('obfs-password') || url.searchParams.get('obfs_password') || ''
+  const fingerprint = url.searchParams.get('fp') || url.searchParams.get('fingerprint') || ''
+  const sni = url.searchParams.get('sni') || url.searchParams.get('peer') || ''
+  const alpn = splitQueryList(url.searchParams.get('alpn'))
+  const rawQuery = Object.fromEntries(url.searchParams.entries())
+  let fm: unknown
+  try {
+    fm = rawQuery.fm ? JSON.parse(String(rawQuery.fm)) : undefined
+  } catch {
+    fm = rawQuery.fm
+  }
+  const serverPorts = splitQueryList(
+    url.searchParams.get('mport') ||
+      url.searchParams.get('ports') ||
+      url.searchParams.get('server_ports') ||
+      hysteria2FmUdpHopValue(fm, 'ports'),
+  )
+  const mihomoHopInterval =
+    url.searchParams.get('hop-interval') ||
+    url.searchParams.get('hop_interval') ||
+    hysteria2FmUdpHopValue(fm, 'interval')
+  const hopInterval = singBoxHysteria2HopInterval(mihomoHopInterval)
+
+  return {
+    id: createManualNodeId('hysteria2', url.hostname, port, tag),
+    tag,
+    type: 'hysteria2',
+    server: url.hostname,
+    server_port: port,
+    password,
+    source: manualNodeSetName,
+    up_mbps: queryNumber(url.searchParams, 'up', 'up_mbps') || undefined,
+    down_mbps: queryNumber(url.searchParams, 'down', 'down_mbps') || undefined,
+    server_ports: serverPorts,
+    mihomo_hop_interval: mihomoHopInterval,
+    hop_interval: hopInterval,
+    obfs: obfsPassword
+      ? {
+          type: url.searchParams.get('obfs') || 'salamander',
+          password: obfsPassword,
+        }
+      : undefined,
+    tls:
+      url.searchParams.get('security') === 'none'
+        ? undefined
+        : {
+            enabled: true,
+            server_name: sni,
+            alpn,
+            insecure:
+              queryBoolean(url.searchParams, 'insecure') ||
+              queryBoolean(url.searchParams, 'allowInsecure') ||
+              queryBoolean(url.searchParams, 'skip-cert-verify'),
+            utls: {
+              enabled: Boolean(fingerprint),
+              fingerprint: fingerprint || undefined,
+            },
+          },
+    raw: {
+      uri: url.toString(),
+      name: tag,
+      type: 'hysteria2',
+      server: url.hostname,
+      port,
+      password,
+      ...rawQuery,
+      fm,
+    },
+  }
+}
 const parseShareUriToNode = (link: string): FastProxyNormalizedNode => {
   const trimmed = link.trim()
   if (!trimmed) throw new Error('请输入节点链接')
@@ -5002,6 +5135,7 @@ const parseShareUriToNode = (link: string): FastProxyNormalizedNode => {
   if (url.protocol === 'trojan:') return parseTrojanShareUri(url)
   if (url.protocol === 'vless:') return parseVlessShareUri(url)
   if (url.protocol === 'ss:') return parseShadowsocksShareUri(url)
+  if (url.protocol === 'hysteria2:' || url.protocol === 'hy2:') return parseHysteria2ShareUri(url)
   throw new Error('暂不支持这个节点协议')
 }
 const validateManualNode = (node: FastProxyNormalizedNode) => {
@@ -5011,7 +5145,10 @@ const validateManualNode = (node: FastProxyNormalizedNode) => {
   if ((node.type === 'vless' || node.type === 'vmess') && !node.uuid) {
     throw new Error('节点链接缺少 UUID')
   }
-  if ((node.type === 'trojan' || node.type === 'shadowsocks') && !node.password) {
+  if (
+    (node.type === 'trojan' || node.type === 'shadowsocks' || node.type === 'hysteria2') &&
+    !node.password
+  ) {
     throw new Error('节点链接缺少密码')
   }
 }
@@ -5090,6 +5227,46 @@ const createVmessShareUri = (node: Record<string, unknown>, tag: string) => {
     }),
   )}`
 }
+const createHysteria2ShareUri = (node: Record<string, unknown>, tag: string) => {
+  const password = nodeStringValue(node, 'password')
+  const server = nodeStringValue(node, 'server')
+  const port = nodeNumberValue(node, 'server_port') || nodeNumberValue(node, 'port') || 443
+  if (!password || !server || !port) return ''
+
+  const raw = asRecord(node.raw)
+  const tls = asRecord(node.tls)
+  const utls = asRecord(tls.utls)
+  const obfs = asRecord(node.obfs)
+  const params = new URLSearchParams()
+  const alpn = nodeStringListValue(node, 'alpn').length
+    ? nodeStringListValue(node, 'alpn')
+    : Array.isArray(tls.alpn)
+      ? tls.alpn.map((item) => String(item)).filter(Boolean)
+      : []
+  appendQueryParam(params, 'security', tls.enabled === false ? 'none' : raw.security || 'tls')
+  appendQueryParam(params, 'up', nodeNumberValue(node, 'up_mbps') || raw.up || raw.up_mbps)
+  appendQueryParam(params, 'down', nodeNumberValue(node, 'down_mbps') || raw.down || raw.down_mbps)
+  appendQueryParam(params, 'sni', tls.server_name || raw.sni)
+  appendQueryParam(params, 'alpn', alpn.length ? alpn.join(',') : raw.alpn)
+  appendQueryParam(params, 'fp', utls.fingerprint || raw.fp || raw.fingerprint)
+  appendQueryParam(
+    params,
+    'mport',
+    nodeStringListValue(node, 'server_ports').join(',') || raw.mport,
+  )
+  appendQueryParam(
+    params,
+    'hop-interval',
+    nodeStringValue(node, 'mihomo_hop_interval') || raw['hop-interval'] || raw.hop_interval,
+  )
+  appendQueryParam(params, 'obfs', obfs.type || raw.obfs)
+  appendQueryParam(params, 'obfs-password', obfs.password || raw['obfs-password'])
+  const query = params.toString()
+  return withHashTag(
+    `hysteria2://${encodeURIComponent(password)}@${server}:${port}${query ? `?${query}` : ''}`,
+    tag,
+  )
+}
 const createNodeShareUri = (node: Record<string, unknown>) => {
   const type = nodeStringValue(node, 'type').toLowerCase()
   const tag = nodeStringValue(node, 'tag') || nodeStringValue(node, 'name') || type
@@ -5097,6 +5274,7 @@ const createNodeShareUri = (node: Record<string, unknown>) => {
   if (type === 'vless') return createVlessShareUri(node, tag)
   if (type === 'ss' || type === 'shadowsocks') return createShadowsocksShareUri(node, tag)
   if (type === 'vmess') return createVmessShareUri(node, tag)
+  if (type === 'hysteria2' || type === 'hy2') return createHysteria2ShareUri(node, tag)
   return ''
 }
 const filteredInboundCards = computed(() => {
@@ -5232,7 +5410,7 @@ const setEditNodeTextField = (
   const node = ensureEditNodeDraft()
   node[key] = value
 }
-const setEditNodeNumberField = (key: 'server_port', value: string) => {
+const setEditNodeNumberField = (key: 'server_port' | 'up_mbps' | 'down_mbps', value: string) => {
   const node = ensureEditNodeDraft()
   node[key] = Number(value) || 0
 }
@@ -5315,14 +5493,28 @@ const textLines = (value: string | boolean | undefined) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
-const firstDnsServerNameByRole = (role: DnsServerRole) =>
-  dnsServers.value.find((server) => server.role === role && server.name.trim())?.name.trim() || ''
-
 const dnsServersByRole = (role: DnsServerRole) =>
   dnsServers.value.filter((server) => server.role === role && server.address.trim())
 
-const normalizeDnsServerName = (server: DnsServerRow, index: number) =>
-  server.name.trim() || `${server.role}-${index + 1}`
+const dnsServerGeneratedName = (index: number) => {
+  const server = dnsServers.value[index]
+  if (!server) return ''
+  const role = server.role || 'default'
+  const ordinal = dnsServers.value.slice(0, index + 1).filter((item) => item.role === role).length
+  return server.name.trim() || `${role}-${ordinal}`
+}
+
+const firstGeneratedDnsServerNameByRole = (role: DnsServerRole) => {
+  const index = dnsServers.value.findIndex(
+    (server) => server.role === role && server.address.trim(),
+  )
+  return index >= 0 ? dnsServerGeneratedName(index) : ''
+}
+
+const firstDnsServerNameByRole = (role: DnsServerRole) => firstGeneratedDnsServerNameByRole(role)
+
+const normalizeDnsServerName = (_server: DnsServerRow, index: number) =>
+  dnsServerGeneratedName(index)
 
 const formatMihomoDnsServer = (server: DnsServerRow) => {
   const address = server.address.trim()
@@ -5372,6 +5564,16 @@ const toSingBoxDnsServer = (server: DnsServerRow, index: number) => {
 
 const singBoxFakeIpEnabled = () =>
   baseConfigForm.dnsMode === 'fake-ip' && Boolean(baseConfigForm.dnsFakeIpEnabled)
+
+const mihomoDnsMode = () => {
+  const normalized = String(baseConfigForm.dnsMode || 'fake-ip')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-')
+  if (normalized === 'real-ip' || normalized === 'realip' || normalized === 'redir-host')
+    return 'redir-host'
+  return 'fake-ip'
+}
 
 const fakeIpServerName = 'fakeip'
 
@@ -5495,6 +5697,12 @@ const singBoxFakeIpRules = (): Record<string, unknown>[] => {
 }
 
 const singBoxDnsFinalServer = () => {
+  const proxyIndex = dnsServers.value.findIndex(
+    (server) => server.role === 'proxy' && server.address.trim(),
+  )
+  if (proxyIndex >= 0) {
+    return normalizeDnsServerName(dnsServers.value[proxyIndex], proxyIndex)
+  }
   return firstDnsServerNameByRole('default')
 }
 
@@ -5510,6 +5718,24 @@ const singBoxDefaultLeakPreventionDnsRules = () => {
   return proxyServer
     ? [{ rule_set: [singBoxDefaultLeakPreventionRuleSetTag], server: proxyServer }]
     : []
+}
+
+const singBoxDefaultClashModeDnsRules = () => {
+  const defaultIndex = dnsServers.value.findIndex(
+    (server) => server.role === 'default' && server.address.trim(),
+  )
+  const proxyIndex = dnsServers.value.findIndex(
+    (server) => server.role === 'proxy' && server.address.trim(),
+  )
+  const defaultServer =
+    defaultIndex >= 0 ? normalizeDnsServerName(dnsServers.value[defaultIndex], defaultIndex) : ''
+  const proxyServer =
+    proxyIndex >= 0 ? normalizeDnsServerName(dnsServers.value[proxyIndex], proxyIndex) : ''
+  const globalServer = singBoxFakeIpEnabled() ? fakeIpServerName : proxyServer
+  return [
+    ...(defaultServer ? [{ clash_mode: 'Direct', server: defaultServer }] : []),
+    ...(globalServer ? [{ clash_mode: 'global', server: globalServer }] : []),
+  ]
 }
 
 const singBoxFakeIpCatchAllRule = () => {
@@ -5573,8 +5799,9 @@ const mihomoDnsPreviewObject = computed(() => {
               ? `geosite:${value}`
               : `rule-set:${value}`
       const targetServers = dnsServers.value
-        .filter((server) => server.name.trim() === rule.serverName.trim())
-        .map(formatMihomoDnsServer)
+        .map((server, index) => ({ server, index }))
+        .filter(({ index }) => dnsServerGeneratedName(index) === rule.serverName.trim())
+        .map(({ server }) => formatMihomoDnsServer(server))
         .filter(Boolean)
       return targetServers.length ? [key, targetServers] : null
     })
@@ -5585,7 +5812,7 @@ const mihomoDnsPreviewObject = computed(() => {
       enable: Boolean(baseConfigForm.dnsEnabled),
       listen: String(baseConfigForm.dnsListen || '').trim(),
       ipv6: Boolean(baseConfigForm.dnsIpv6),
-      'enhanced-mode': String(baseConfigForm.dnsMode || 'fake-ip'),
+      'enhanced-mode': mihomoDnsMode(),
       'fake-ip-range': String(baseConfigForm.dnsFakeIpRange || '').trim(),
       'fake-ip-range6': String(baseConfigForm.dnsFakeIpRange6 || '').trim(),
       'fake-ip-filter-mode': String(baseConfigForm.dnsFakeIpFilterMode || 'blacklist'),
@@ -5611,8 +5838,9 @@ const mihomoDnsPreviewObject = computed(() => {
 
 const singBoxDnsPreviewObject = computed(() => {
   const servers = dnsServers.value
-    .filter((server) => server.address.trim())
-    .map((server, index) => toSingBoxDnsServer(server, index))
+    .map((server, index) => ({ server, index }))
+    .filter(({ server }) => server.address.trim())
+    .map(({ server, index }) => toSingBoxDnsServer(server, index))
 
   const fakeIpServer = singBoxFakeIpEnabled()
     ? [
@@ -5649,8 +5877,9 @@ const singBoxDnsPreviewObject = computed(() => {
   const fakeIpCatchAllRule = singBoxFakeIpCatchAllRule()
   const mergedRules = mergeAdjacentSingBoxDnsRules([
     ...fakeIpRules,
-    ...rules,
     ...singBoxDefaultLeakPreventionDnsRules(),
+    ...rules,
+    ...singBoxDefaultClashModeDnsRules(),
     ...(fakeIpCatchAllRule ? [fakeIpCatchAllRule] : []),
   ])
 
