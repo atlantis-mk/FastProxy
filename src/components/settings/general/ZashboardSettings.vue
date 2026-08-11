@@ -47,8 +47,12 @@
 </template>
 
 <script setup lang="ts">
-import { appVersion, upgradeUIAPI } from '@/api'
-import { useIsSettingVisible, useSettings } from '@/composables/settings'
+import {
+  isUIUpdateAvailable,
+  upgradeUIAPI,
+  zashboardVersion as appVersion,
+} from '@/assembly/version'
+import { useIsSettingVisible } from '@/composables/settings'
 import { GENERAL_ITEM_KEYS } from '@/config/settingsItems'
 import { handlerUpgradeSuccess } from '@/helper'
 import { twMerge } from 'tailwind-merge'
@@ -61,8 +65,6 @@ const k = GENERAL_ITEM_KEYS
 const isVisibleActions = useIsSettingVisible(k.actions)
 
 const commitId = __COMMIT_ID__
-
-const { isUIUpdateAvailable } = useSettings()
 
 const isUIUpgrading = ref(false)
 

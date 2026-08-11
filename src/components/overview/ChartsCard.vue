@@ -1,7 +1,7 @@
 <template>
-  <div class="base-container w-full p-4">
+  <div class="charts-card base-container w-full p-4">
     <!-- Surge-style stat cards -->
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+    <div class="charts-card-grid grid grid-cols-2 gap-3">
       <!-- Upload Speed -->
       <div class="bg-base-200/30 flex flex-col gap-1.5 rounded-xl p-4">
         <div class="text-base-content/60 text-xs font-semibold tracking-wider uppercase">
@@ -12,9 +12,10 @@
           <span class="text-base-content/60 text-sm">{{ ulSpeedParts.unit }}/s</span>
         </div>
         <div class="mt-1 h-14">
-          <MiniSparkline
+          <SparklineChart
             :data="uploadSpeedHistory"
-            :min="60000"
+            :y-axis-floor="60000"
+            :window-seconds="timeSaved"
             color="info"
             :name="t('upload')"
             :label-formatter="speedLabelFormatter"
@@ -34,9 +35,10 @@
           <span class="text-base-content/60 text-sm">{{ dlSpeedParts.unit }}/s</span>
         </div>
         <div class="mt-1 h-14">
-          <MiniSparkline
+          <SparklineChart
             :data="downloadSpeedHistory"
-            :min="60000"
+            :y-axis-floor="60000"
+            :window-seconds="timeSaved"
             :name="t('download')"
             :label-formatter="speedLabelFormatter"
             :tooltip-formatter="speedTooltipFormatter"
@@ -46,7 +48,9 @@
       </div>
 
       <!-- Active Connections -->
-      <div class="bg-base-200/30 col-span-2 flex flex-col gap-1.5 rounded-xl p-4 lg:col-span-1">
+      <div
+        class="charts-card-connections bg-base-200/30 col-span-2 flex flex-col gap-1.5 rounded-xl p-4"
+      >
         <div
           class="text-base-content/60 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase"
         >
@@ -57,35 +61,44 @@
           {{ connectionCount }}
         </div>
         <div class="mt-1 h-14">
-          <MiniSparkline
+          <SparklineChart
             :data="connectionsHistory"
-            :min="10"
+            :y-axis-floor="10"
+            :window-seconds="timeSaved"
             :name="t('connections')"
             :label-formatter="connLabelFormatter"
             :tooltip-formatter="connTooltipFormatter"
           />
         </div>
-        <div class="text-base-content/50 text-xs">{{ $t('memoryUsage') }} {{ memoryStr }}</div>
+        <div class="text-base-content/50 flex items-center justify-between gap-2 text-xs">
+          <span>{{ $t('memoryUsage') }} {{ memoryStr }}</span>
+          <span v-if="can('goroutines')">{{ $t('goroutines') }} {{ goroutines }}</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import MiniSparkline from '@/components/overview/MiniSparkline.vue'
-import { getToolTipForParams } from '@/helper'
+import SparklineChart from '@/components/charts/SparklineChart.vue'
+import {
+  formatHistoryTooltipParam,
+  formatTimeSeriesTooltipParam,
+} from '@/components/charts/chartTooltip'
+import type { ChartTooltipParam } from '@/components/charts/chartTypes'
+import { can } from '@/assembly/backend'
 import { prettyBytesHelper } from '@/helper/utils'
 import { activeConnections, downloadTotal, uploadTotal } from '@/store/connections'
 import {
   connectionsHistory,
   downloadSpeed,
   downloadSpeedHistory,
+  goroutines,
   memory,
   timeSaved,
   uploadSpeed,
   uploadSpeedHistory,
 } from '@/store/overview'
-import dayjs from 'dayjs'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -108,25 +121,33 @@ const speedLabelFormatter = (value: number) => {
   return `${prettyBytesHelper(value, { maximumFractionDigits: 0, binary: false })}/s`
 }
 
-const speedTooltipFormatter = (value: ToolTipParams[]) => {
-  return value.map((item) => getToolTipForParams(item, { binary: false, suffix: '/s' })).join('')
+const speedTooltipFormatter = (value: ChartTooltipParam[]) => {
+  return value
+    .map((item) => formatHistoryTooltipParam(item, { binary: false, suffix: '/s' }))
+    .join('')
 }
 
 const connLabelFormatter = (value: number) => {
   return `${value}`
 }
 
-const connTooltipFormatter = (value: ToolTipParams[]) => {
-  return value
-    .map((item) => {
-      if (item.data.name < timeSaved + 1) return
-      return `
-    <div class="flex items-center my-2 gap-1">
-      <div class="w-4 h-4 rounded-full" style="background-color: ${item.color}"></div>
-      ${item.seriesName}
-      (${dayjs(item.data.name).format('HH:mm:ss')}): ${item.data.value}
-    </div>`
-    })
-    .join('\n')
+const connTooltipFormatter = (value: ChartTooltipParam[]) => {
+  return value.map((item) => formatTimeSeriesTooltipParam(item, String)).join('\n')
 }
 </script>
+
+<style scoped>
+.charts-card {
+  container-type: inline-size;
+}
+
+@container (min-width: 768px) {
+  .charts-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .charts-card-connections {
+    grid-column: span 1 / span 1;
+  }
+}
+</style>

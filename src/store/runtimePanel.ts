@@ -1,9 +1,9 @@
-import { fetchConfigs } from './config'
+import { fetchConfigs } from '@/assembly/config'
+import { fetchProxies } from '@/assembly/proxies'
+import { fetchRules } from '@/assembly/rules'
 import { initConnections, stopConnections } from './connections'
 import { initLogs, stopLogs } from './logs'
 import { initSatistic, stopSatistic } from './overview'
-import { fetchProxies } from './proxies'
-import { fetchRules } from './rules'
 
 export const stopRuntimePanelData = () => {
   stopConnections()

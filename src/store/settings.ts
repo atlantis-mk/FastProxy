@@ -7,10 +7,13 @@ import {
   EMOJIS,
   FOLDER_MODE,
   FONTS,
+  GEOIP_ASN_DATABASE_URL,
+  GEOIP_COUNTRY_DATABASE_URL,
   GLOBAL,
   IP_INFO_API,
   IS_APPLE_DEVICE,
   LANG,
+  LIST_DISPLAY_STYLE,
   OVERVIEW_CARD,
   PROXY_CARD_SIZE,
   PROXY_CHAIN_DIRECTION,
@@ -150,6 +153,14 @@ export const displayAllFeatures = useStorage('config/display-all-features', fals
 export const blurIntensity = useStorage('config/blur-intensity', 10)
 export const scrollAnimationEffect = useStorage('config/scroll-animation-effect', true)
 export const IPInfoAPI = useStorage('config/geoip-info-api', IP_INFO_API.IPSB)
+export const geoipCountryDatabaseURL = useStorage(
+  'config/geoip-country-database-url',
+  GEOIP_COUNTRY_DATABASE_URL,
+)
+export const geoipASNDatabaseURL = useStorage(
+  'config/geoip-asn-database-url',
+  GEOIP_ASN_DATABASE_URL,
+)
 export const autoDisconnectIdleUDP = useStorage('config/auto-disconnect-idle-udp', false)
 export const autoDisconnectIdleUDPTime = useStorage('config/auto-disconnect-idle-udp-time', 300)
 export const keyboardShortcuts = useStorage<Record<string, string>>('config/keyboard-shortcuts', {})
@@ -175,6 +186,10 @@ const defaultOverviewCardOrder: { card: OVERVIEW_CARD; visible: boolean }[] = [
     visible: true,
   },
   {
+    card: OVERVIEW_CARD.EarthGlobeCard,
+    visible: true,
+  },
+  {
     card: OVERVIEW_CARD.TopologyCharts,
     visible: true,
   },
@@ -197,18 +212,34 @@ export const overviewCardOrder = useStorage<{ card: OVERVIEW_CARD; visible: bool
   defaultOverviewCardOrder,
 )
 
-// 确保所有卡片都在配置中，缺失的卡片添加到末尾
+// 确保所有卡片都在配置中。存量配置首次补入全球连接时放在连接拓扑前；
+// 其他缺失卡片仍追加到末尾，已有全球连接的自定义顺序不改。
 const allCardTypes = Object.values(OVERVIEW_CARD)
 const existingCardTypes = new Set(overviewCardOrder.value.map((item) => item.card))
 const missingCards = allCardTypes.filter((card) => !existingCardTypes.has(card))
 
 if (missingCards.length > 0) {
-  const newCards = missingCards.map((card) => ({
-    card,
-    visible: true,
-  }))
-  overviewCardOrder.value = [...overviewCardOrder.value, ...newCards]
+  const nextOrder = [...overviewCardOrder.value]
+
+  for (const card of missingCards) {
+    const item = { card, visible: true }
+
+    if (card === OVERVIEW_CARD.EarthGlobeCard) {
+      const topologyIndex = nextOrder.findIndex(({ card }) => card === OVERVIEW_CARD.TopologyCharts)
+      nextOrder.splice(topologyIndex === -1 ? nextOrder.length : topologyIndex, 0, item)
+    } else {
+      nextOrder.push(item)
+    }
+  }
+
+  overviewCardOrder.value = nextOrder
 }
+
+export const earthOriginSource = useStorage<'global' | 'china'>(
+  'config/earth-origin-source',
+  'china',
+)
+export const earthVisualMode = useStorage<'flat' | 'space'>('config/earth-visual-mode', 'flat')
 
 // proxies
 export const collapseGroupMap = useStorage<Record<string, boolean>>('cache/collapse-group-map', {})
@@ -332,9 +363,17 @@ export const sourceIPLabelList = useStorage<SourceIPLabel[]>('config/source-ip-l
 export const displayNowNodeInRule = useStorage('config/display-now-node-in-rule', true)
 export const displayLatencyInRule = useStorage('config/display-latency-in-rule', true)
 export const disconnectOnRuleDisable = useStorage('config/disconnect-on-rule-disable', true)
+export const ruleDisplayStyle = useStorage<LIST_DISPLAY_STYLE>(
+  'config/rule-display-style',
+  LIST_DISPLAY_STYLE.CARD,
+)
 
 // logs
 export const logRetentionLimit = useStorage<number>('config/log-retention-limit', 1000)
+export const logDisplayStyle = useStorage<LIST_DISPLAY_STYLE>(
+  'config/log-display-style',
+  LIST_DISPLAY_STYLE.CARD,
+)
 export const logSearchHistory = useStorage<string[]>('cache/log-search-history', [])
 
 // settings visibility

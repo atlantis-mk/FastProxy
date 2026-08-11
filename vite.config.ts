@@ -86,12 +86,18 @@ const getGitCommitId = (): string => {
   }
 }
 
+// Selects which fonts get bundled. One of:
+//   all (default) | cdn | firasans | misans | pingfang | sarasa | none
+// See src/assets/load-fonts.ts for what each value loads.
+const font = process.env.FONT || 'all'
+
 // https://vite.dev/config/
 export default defineConfig({
   cacheDir,
   define: {
     __APP_VERSION__: JSON.stringify(version),
     __COMMIT_ID__: JSON.stringify(getGitCommitId()),
+    __FONT__: JSON.stringify(font),
   },
   base: './',
   plugins: [
@@ -100,6 +106,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon-dark.svg'],
+      workbox: {
+        // The globe is lazy-loaded, but its local textures and bundled attribution must
+        // remain available after the first PWA install/update for offline cache reuse.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,md}'],
+        // The bundle is above Workbox's 2 MiB default because sing-box native
+        // API support and the Tools page are always bundled.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       manifest: {
         name: 'FastProxy',
         short_name: 'FastProxy',
@@ -137,6 +151,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // mmdb-lib imports Node's `net`; back it with a tiny browser shim.
+      net: fileURLToPath(new URL('./src/helper/netShim.ts', import.meta.url)),
     },
   },
   server: {

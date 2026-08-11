@@ -99,20 +99,20 @@
 </template>
 
 <script setup lang="ts">
-import { isBackendAvailable } from '@/api'
 import { detectBackendFlavor } from '@/api/fastproxy'
+import { isBackendAvailable } from '@/assembly/backend'
+import { checkUIUpdate } from '@/assembly/version'
+import { fetchProxies, proxiesTabShow } from '@/assembly/proxies'
+import { rulesTabShow } from '@/assembly/rules'
 import DialogWrapper from '@/components/common/DialogWrapper.vue'
 import SideBar from '@/components/sidebar/SideBar.vue'
 import { dockTop } from '@/composables/paddingViews'
-import { useSettings } from '@/composables/settings'
 import { useSwipeRouter } from '@/composables/swipe'
 import { PROXY_TAB_TYPE, ROUTE_ICON_MAP, ROUTE_NAME, RULE_TAB_TYPE } from '@/constant'
 import { isRouteAvailable, renderRoutes } from '@/helper'
 import { showNotification } from '@/helper/notification'
 import { getLabelFromBackend, isMiddleScreen } from '@/helper/utils'
 import { fastProxyRuntimeStatus, loadFastProxyWorkspace } from '@/store/fastproxyRepository'
-import { fetchProxies, proxiesTabShow } from '@/store/proxies'
-import { rulesTabShow } from '@/store/rules'
 import { initRuntimePanelData, stopRuntimePanelData } from '@/store/runtimePanel'
 import { isSidebarCollapsed } from '@/store/settings'
 import {
@@ -295,8 +295,6 @@ watch(
     ensureCurrentRouteAvailable()
   },
 )
-
-const { checkUIUpdate } = useSettings()
 
 checkUIUpdate()
 </script>

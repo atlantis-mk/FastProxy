@@ -37,13 +37,15 @@ import type {
 } from '@/types/fastproxy'
 import axios, { type AxiosRequestConfig } from 'axios'
 
+const fastProxyAxios = axios.create()
+
 const fastProxyRequest = <T>(config: AxiosRequestConfig) => {
   const backend = activeBackend.value
   if (!backend) {
     throw new Error('No active backend selected')
   }
 
-  return axios.request<T>({
+  return fastProxyAxios.request<T>({
     ...config,
     baseURL: getApiBaseUrl(backend),
     headers: {

@@ -1,5 +1,5 @@
 <template>
-  <div class="scroller-item hover:bg-base-200/40 px-4 py-2.5 sm:flex sm:items-center sm:gap-4">
+  <div class="hover:bg-base-200/40 px-4 py-2.5 sm:flex sm:items-center sm:gap-4">
     <div class="flex min-w-0 items-center gap-2 sm:flex-1">
       <span class="text-base-content/50 shrink-0 text-xs tabular-nums">{{ index }}</span>
       <span class="min-w-0 truncate text-sm">
@@ -45,11 +45,11 @@
 </template>
 
 <script setup lang="ts">
-import { updateRuleProviderAPI } from '@/api'
+import { updateRuleProviderAPI } from '@/assembly/rules'
 import HighlightText from '@/components/common/HighlightText.vue'
 import { useBounceOnVisible } from '@/composables/bouncein'
 import { fromNow } from '@/helper/utils'
-import { fetchRules, rulesFilter } from '@/store/rules'
+import { fetchRules, rulesFilter } from '@/assembly/rules'
 import type { RuleProvider } from '@/types'
 import { ArrowPathIcon } from '@heroicons/vue/24/outline'
 import { twMerge } from 'tailwind-merge'

@@ -281,10 +281,11 @@ import NetworkCard from '@/components/overview/NetworkCard.vue'
 import ProviderTrafficOverview from '@/components/overview/ProviderTrafficOverview.vue'
 import RuleHitCountCard from '@/components/overview/RuleHitCountCard.vue'
 import TopologyCharts from '@/components/overview/TopologyCharts.vue'
-import { disconnectByIdAPI, isSingBox } from '@/api'
+import { can } from '@/assembly/backend'
+import { configs, fetchConfigs, updateConfigs } from '@/assembly/config'
+import { disconnectByIdAPI } from '@/assembly/connections'
 import { OVERVIEW_CARD, ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
-import { configs, fetchConfigs, updateConfigs } from '@/store/config'
 import { activeConnections } from '@/store/connections'
 import {
   fastProxyBootstrap,
@@ -459,7 +460,7 @@ const handleProxyModeChange = async (mode: string) => {
   configs.value = { ...configs.value, mode }
   try {
     await updateConfigs({ mode })
-    if (isSingBox.value && automaticDisconnection.value) {
+    if (can('disconnectOnModeChange') && automaticDisconnection.value) {
       activeConnections.value.forEach((connection) => {
         if (connection.rule.includes('clash_mode')) {
           disconnectByIdAPI(connection.id)

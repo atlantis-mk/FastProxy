@@ -17,7 +17,7 @@ export const prettyBytesHelper = (bytes: number, opts?: Options) => {
   })
 }
 
-export const fromNow = (timestamp: string) => {
+export const fromNow = (timestamp: string | number) => {
   return dayjs(timestamp).fromNow()
 }
 
@@ -83,6 +83,16 @@ export const getWebSocketBaseUrl = (end?: Omit<Backend, 'uuid'>) => {
   }
   return getUrlFromBackend(end).replace(/^http/, 'ws')
 }
+
+export const getSingboxUrlFromBackend = (
+  end: Pick<Backend, 'type' | 'protocol' | 'host' | 'port'>,
+) => {
+  if (end.type !== 'singbox' || !end.host) return ''
+  return `${end.protocol}://${end.host}:${end.port}`
+}
+
+export const getSingboxSecret = (end: Pick<Backend, 'type' | 'password'>) =>
+  end.type === 'singbox' ? end.password || '' : ''
 
 export const getLabelFromBackend = (end: Omit<Backend, 'uuid'>) => {
   return end.label || getUrlFromBackend(end)
@@ -161,6 +171,7 @@ export const getBackendFromUrl = () => {
 
   if (query.has('hostname')) {
     return {
+      type: 'clash' as const,
       protocol: query.get('http')
         ? 'http'
         : query.get('https')

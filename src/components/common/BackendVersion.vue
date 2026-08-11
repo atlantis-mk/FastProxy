@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { isSingBox, version } from '@/api'
+import { coreBrand, version } from '@/assembly/version'
 import MetacubexLogo from '@/assets/images/metacubex.jpg'
 import SingBoxLogo from '@/assets/images/sing-box.svg'
 import { checkTruncation } from '@/helper/tooltip'
@@ -31,7 +31,7 @@ const backendLogo = computed(() => {
   if (isFastProxy.value) {
     return fastProxySelectedCore.value === 'sing-box' ? SingBoxLogo : MetacubexLogo
   }
-  return isSingBox.value ? SingBoxLogo : MetacubexLogo
+  return coreBrand.value.logo
 })
 const backendVersionText = computed(() => {
   if (isFastProxy.value) {

@@ -1,6 +1,6 @@
-import { isSingBox } from '@/api'
+import { can } from '@/assembly/backend'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
-import { LOG_LEVEL } from '@/constant'
+import { LIST_DISPLAY_STYLE, LOG_LEVEL } from '@/constant'
 import { useTooltip } from '@/helper/tooltip'
 import {
   initLogs,
@@ -11,8 +11,9 @@ import {
   logLevel,
   logTypeFilter,
   logs,
+  supportedLogLevels,
 } from '@/store/logs'
-import { logRetentionLimit, logSearchHistory } from '@/store/settings'
+import { logDisplayStyle, logRetentionLimit, logSearchHistory } from '@/store/settings'
 import {
   ArrowDownTrayIcon,
   LinkIcon,
@@ -56,18 +57,14 @@ export default defineComponent({
 
     watch(logFilter, insertLogSearchHistory)
 
-    const logLevels = computed(() => {
-      if (isSingBox.value) {
-        return Object.values(LOG_LEVEL)
-      }
-      return [LOG_LEVEL.Debug, LOG_LEVEL.Info, LOG_LEVEL.Warning, LOG_LEVEL.Error, LOG_LEVEL.Silent]
-    })
+    // 可选级别由内核决定,收敛在组装层(见 assembly/logs)。
+    const logLevels = supportedLogLevels
 
     const logFilterOptions = computed(() => {
       const types: string[] = []
       const levels: string[] = []
 
-      if (isSingBox.value) {
+      if (can('logTypeFilter')) {
         for (const log of logs.value) {
           const startIndex = log.payload.startsWith('[') ? log.payload.indexOf(']') + 2 : 0
           const endIndex = log.payload.indexOf(':', startIndex)
@@ -135,7 +132,7 @@ export default defineComponent({
     return () => {
       const levelSelect = (
         <select
-          class={['join-item select select-sm min-w-30']}
+          class={['select select-sm min-w-30']}
           v-model={logLevel.value}
           onChange={initLogs}
         >
@@ -152,8 +149,7 @@ export default defineComponent({
       const searchInput = (
         <TextInput
           v-model={logFilter.value}
-          beforeClose={true}
-          class="flex-1"
+          class="join-item min-w-0 flex-1"
           placeholder={`${t('search')} | Regex`}
           clearable={true}
           menus={logSearchHistory.value}
@@ -209,6 +205,22 @@ export default defineComponent({
             <div class="flex flex-col gap-3 text-sm">
               <div class="settings-grid">
                 <div class="setting-item">
+                  <div class="setting-item-label">{t('logStyle')}</div>
+                  <select
+                    class="select select-sm min-w-24"
+                    v-model={logDisplayStyle.value}
+                  >
+                    {Object.values(LIST_DISPLAY_STYLE).map((opt) => (
+                      <option
+                        key={opt}
+                        value={opt}
+                      >
+                        {t(opt)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div class="setting-item">
                   <div class="setting-item-label">{t('logRetentionLimit')}</div>
                   <input
                     class="input input-sm w-20"
@@ -239,7 +251,7 @@ export default defineComponent({
                   </div>
                   <input
                     type="checkbox"
-                    class="toggle toggle-sm"
+                    class="toggle"
                     v-model={logFilterEnabled.value}
                   />
                 </div>
@@ -294,7 +306,7 @@ export default defineComponent({
       const content = !isLargeCtrlsBar.value ? (
         <div class="flex flex-col gap-2 p-2">
           <div class="flex w-full justify-between gap-2">
-            <div class="join flex-1">{levelSelect}</div>
+            <div class="flex flex-1">{levelSelect}</div>
             {buttons}
           </div>
           <div class="join">
