@@ -1,106 +1,170 @@
-# zashboard
+# FastProxy
 
-<p align="center">
-  <img src="./readme/pc.png" height="300">
-  <img src="./readme/mobile.png" height="300">
-</p>
+FastProxy 是一个面向 `mihomo` 与 `sing-box` 的本地代理管理面板。项目将 Vue 3
+前端、Go 后端和代理内核整合到一个可执行文件中，用统一的数据模型管理订阅、节点、
+路由规则和运行时配置。
 
-## **Requirement**
+> 项目仍处于快速开发阶段，配置模型和使用方式可能继续调整。升级前建议备份数据目录。
 
-Browser support
+## 功能
 
-- Chrome 111 (released March 2023)
-- Firefox 128 (released July 2024)
-- Safari 16.4 (released March 2023)
-- Not supported on iOS 16.4 jailbroken version.
+- 同时支持 `mihomo` 和 `sing-box`，可在同一面板中选择、启动、停止和重启内核。
+- 管理订阅、手动节点、节点组、路由规则集、DNS、入站和全局运行参数。
+- 将统一配置编译为对应内核的运行时配置，并在启动前执行内核校验。
+- 支持内核二进制上传、本地路径配置、版本检查和 GitHub Release 更新。
+- 提供代理选择、连接、日志、规则、流量、延迟和网络拓扑等运行状态视图。
+- 配置源使用可读 JSON 保存，索引、缓存、历史和诊断数据使用 SQLite 保存。
+- 前端与代理内核可嵌入 Go 二进制，便于在桌面系统、Linux 和 OpenWrt 上部署。
 
-## **Online**
+## 快速开始
 
-You can access the online zashboard at the following link:
+### 使用发行版
 
-- [Online zashboard](http://board.zash.run.place)
+从 [GitHub Releases](https://github.com/atlantis-mk/FastProxy/releases) 下载与系统和架构
+匹配的压缩包，解压后运行 `fastproxy-server`（Windows 为 `fastproxy-server.exe`）。
 
-## **Download**
+Linux / macOS：
 
-You can download the zashboard files here:
-
-> All builds include sing-box native API support.
-
-release:
-
-- [dist.zip (7.81 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip) – Includes better font-loading experience.
-- [dist-no-fonts.zip (1.44 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-no-fonts.zip) – No fonts included, uses system fonts only.
-- [dist-cdn-fonts.zip (1.44 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip) – Fonts loaded from unpkg.com, If you have trouble connecting to unpkg.com, **you may experience slow page loading**.
-- [dist-firasans-only.zip (1.67 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-firasans-only.zip) – Only with FiraSans Font
-- [dist-misans-only.zip (3.54 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-misans-only.zip) – Only with MiSans Font
-- [dist-pingfang-only.zip (3.25 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-pingfang-only.zip) – Only with PingFang Font
-- [dist-sarasa-only.zip (3.67 MB)](https://github.com/Zephyruso/zashboard/releases/latest/download/dist-sarasa-only.zip) – Only with Sarasa Font
-
-dev:
-
-- [gh-pages.zip (7.81 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip)
-- [gh-pages-no-fonts.zip (1.44 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-no-fonts.zip)
-- [gh-pages-cdn-fonts.zip (1.44 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-cdn-fonts.zip)
-- [gh-pages-firasans-only.zip (1.67 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-firasans-only.zip)
-- [gh-pages-misans-only.zip (3.54 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-misans-only.zip)
-- [gh-pages-pingfang-only.zip (3.25 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-pingfang-only.zip)
-- [gh-pages-sarasa-only.zip (3.67 MB)](https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages-sarasa-only.zip)
-
-## **Docker Setup**
-
-To run zashboard via Docker, use the following command:
-
-```
-docker run -d -p 80:80 ghcr.io/zephyruso/zashboard:latest
+```bash
+chmod +x ./fastproxy-server
+./fastproxy-server
 ```
 
-## Tips
+服务默认监听 `127.0.0.1:43171`。启动后访问：
 
-1. The connection table can be dragged with the left mouse button, and right-clicking can copy cell content.
-2. Right-clicking on a node / node group card will perform a speedtest for the node / node group.
-3. The proxy group sorting is based on the node order in the GLOBAL group. In Mihomo, it follows the configuration file order, while in sing-box, route.final is placed first, with the rest following the configuration file order. If you need custom ordering, you can specify the order by overriding the GLOBAL group.
-4. The dashboard supports PWA (Progressive Web App), which can provide a native app-like experience on mobile devices through "Add to Home Screen".
-5. The dashboard's upgrade button and auto-upgrade functionality require proper configuration of the core's UI download path ([mihomo](https://wiki.metacubex.one/config/general/#_9) | [sing-box](https://sing-box.sagernet.org/configuration/experimental/clash-api/#external_ui_download_url)), otherwise clicking update may result in updating to the core's default panel.
+```text
+http://127.0.0.1:43171
+```
 
-## 提示
+发行工作流目前构建以下平台：
 
-1. 连接表格可被鼠标左键拖动，右键可复制单元格内容。
-2. 右键点击节点/节点组卡片可对节点/节点组进行测速。
-3. 面板的节点组排序是根据GLOBAL组中的节点顺序排序的，在Mihomo中会是按配置文件的顺序，在sing-box中会把route.final放到第一位，其余按照配置文件顺序，如果你需要自定义顺序，可通过覆盖GLOBAL组指定顺序
-4. 面板支持PWA（Progressive Web App），可以在移动设备上通过"添加到主屏幕"获得类原生app的体验
-5. 面板的更新按钮和自动更新功能需要正确的配置核心的ui下载路径 ([mihomo](https://wiki.metacubex.one/config/general/#_9) | [sing-box](https://sing-box.sagernet.org/configuration/experimental/clash-api/#external_ui_download_url)), 否则可能会在点击更新后更新为核心默认面板
+- Linux：amd64、arm64
+- macOS：amd64、arm64
+- Windows：amd64、arm64
+- OpenWrt：386 softfloat、amd64、armv5、armv6、armv7、arm64
 
-## URL params format
+每个 Release 同时提供 `checksums.txt`，可用于校验下载文件的 SHA-256 摘要。
 
-#### basic example
+### macOS 系统服务
 
-http://host:port/#/setup?hostname=ipordomain&port=9090&secret=123456
+macOS 发行版可以安装为 LaunchDaemon：
 
-1. **`http` / `https`**
-   - Determines the protocol (`http` or `https`).
-   - Default: current page protocol
+```bash
+sudo ./fastproxy-server install
+```
 
-2. **`hostname`**
-   - The Clash API's IP or domain.
+默认服务仍监听 `127.0.0.1:43171`，数据保存在
+`/Library/Application Support/FastProxy`，日志保存在 `/Library/Logs/FastProxy`。
 
-3. **`port`**
-   - The Clash API port.
+如需自定义参数：
 
-4. **`secondaryPath`**
-   - Optional path appended to the base URL.
-   - Default: An empty string.
+```bash
+sudo ./fastproxy-server install \
+  --addr 127.0.0.1:43171 \
+  --data-dir "/Library/Application Support/FastProxy" \
+  --mihomo-bin /path/to/mihomo \
+  --sing-box-bin /path/to/sing-box
+```
 
-5. **`secret`**
-   - Password for authentication.
+使用 `--no-start` 可以只安装文件而不立即启动服务。
 
-6. **`disableUpgradeCore`**
-   - Set '1' to hide upgrade core button
+## 源码开发
 
-7. **`disableTunMode`**
-   - Set '1' to hide tun switch
+环境要求：
 
-8. **`type`**
-   - Selects the backend API: `clash` (Clash REST/WS) or `singbox` (sing-box native).
-   - Default: `clash`
+- Node.js 22+
+- pnpm 11+
+- Go 1.25+
 
-### I code just for fun, not for money. If you really want to donate, please consider donating to [UNICEF](https://www.unicef.org/) to help hungry children.
+克隆仓库并初始化后端子模块：
+
+```bash
+git clone --recurse-submodules https://github.com/atlantis-mk/FastProxy.git
+cd FastProxy
+pnpm install
+```
+
+同时启动前端和后端：
+
+```bash
+pnpm dev:fullstack
+```
+
+开发模式下，Vite 会把 `/api` 请求代理到 `http://127.0.0.1:43171`。可通过
+`FASTPROXY_SERVER_PROXY_TARGET` 指向其他后端地址。
+
+常用命令：
+
+```bash
+pnpm dev          # 启动 Vite 前端
+pnpm type-check   # Vue / TypeScript 类型检查
+pnpm lint         # ESLint 检查并修复
+pnpm build        # 构建前端到 dist/
+pnpm build:binary # 构建包含前端和代理内核的 Go 二进制
+```
+
+后端测试：
+
+```bash
+cd FastProxy-Server
+go test ./...
+```
+
+`pnpm build:binary` 默认输出 `build/fastproxy-server`。可以用
+`FASTPROXY_OUTPUT` 修改输出路径：
+
+```bash
+FASTPROXY_OUTPUT=/tmp/fastproxy-server pnpm build:binary
+```
+
+构建脚本会为目标平台准备内嵌代理内核，因此首次执行需要网络连接。
+
+## 配置
+
+服务支持命令行参数和环境变量：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `FASTPROXY_SERVER_ADDR` | `127.0.0.1:43171` | HTTP 监听地址 |
+| `FASTPROXY_SERVER_DATA_DIR` | `~/.config/fastproxy` | 数据目录 |
+| `FASTPROXY_SERVER_LOG_LEVEL` | `info` | 日志级别：`debug`、`info`、`warn`、`error` |
+| `FASTPROXY_SERVER_MIHOMO_BIN` | 内嵌或本地缓存 | 指定 mihomo 二进制路径 |
+| `FASTPROXY_SERVER_SING_BOX_BIN` | 内嵌或本地缓存 | 指定 sing-box 二进制路径 |
+| `GITHUB_TOKEN` | 空 | 用于检查和下载代理内核的 GitHub API token |
+
+也可以直接传参：
+
+```bash
+./fastproxy-server \
+  --addr 127.0.0.1:43171 \
+  --data-dir /path/to/fastproxy-data \
+  --log-level debug
+```
+
+未指定数据目录时，FastProxy 使用 `$XDG_CONFIG_HOME/fastproxy`；若未设置
+`XDG_CONFIG_HOME`，则使用 `~/.config/fastproxy`。
+
+## 项目结构
+
+```text
+src/                         Vue 3 前端
+FastProxy-Server/            Go 后端子模块
+  cmd/fastproxy-server/      服务入口
+  internal/                  API、配置、仓库与运行时实现
+scripts/                     本地开发、构建和运行时验证脚本
+openspec/changes/            进行中的设计与变更说明
+.github/workflows/build.yml  跨平台发行构建
+```
+
+更详细的后端说明和 API 列表见
+[FastProxy-Server/README.md](./FastProxy-Server/README.md)。
+
+## 致谢
+
+FastProxy 的监控面板基于 [zashboard](https://github.com/Zephyruso/zashboard) 演进，
+并使用 [mihomo](https://github.com/MetaCubeX/mihomo) 与
+[sing-box](https://github.com/SagerNet/sing-box) 作为代理内核。
+
+## License
+
+[MIT](./LICENSE)
