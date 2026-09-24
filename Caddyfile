@@ -1,7 +1,8 @@
 :80 {
-  file_server
+  admin off
+  encode gzip
 
-  root * .
-  
+  root * /srv
+  file_server
   try_files {path} /index.html
 }
